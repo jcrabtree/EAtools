@@ -1,5 +1,15 @@
 from pandas import *
 
+def set_options():
+    set_option('display.expand_frame_repr', True)
+    set_option('display.line_width',10000)
+    set_option('display.max_columns',10000)
+    set_option('display.max_rows',10000)
+    set_option('display.max_colwidth',10000)
+    set_option('display.max_info_columns',10000)
+    set_option('display.height',1000)
+    set_option('display.max_seq_items',100)
+
 def time_converter(x):
     return time(int(np.floor(((int(x)-1)/2.0))),int(((int(x)-1)/2.0 % 1)*60+15)) #Work out the time from the HH number
 
