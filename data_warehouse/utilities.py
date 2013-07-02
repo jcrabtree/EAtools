@@ -44,3 +44,6 @@ def timeseries_convert(df):
     df['datetime'] = ds['datetime'] #set the df index to the new datetime index
     df=df.set_index('datetime')
     return df
+
+if __name__ == '__main__':
+    pass

@@ -1,1 +1,1 @@
-from tools.data_warehouse.utilities import *
+from data_warehouse.utilities import *
