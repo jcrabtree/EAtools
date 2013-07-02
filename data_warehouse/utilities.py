@@ -59,10 +59,10 @@ def timeseries_convert(df,keep_tp_index=True):
     return df
 
 def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_level=0):
-	'''
-	Query tool for the Data Warehouse
-	Plan to expand this over all DW tables, more thinking needed... 
-	'''
+    '''
+    Query tool for the Data Warehouse
+    Plan to expand this over all DW tables, more thinking needed... 
+    '''
     import pandas.io.sql as sql
     import pyodbc
     dw_connect = pyodbc.connect('DSN=' + DSN + ';UID=linux_user;PWD=linux')
