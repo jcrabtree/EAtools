@@ -1,4 +1,5 @@
 from pandas import *
+from datetime import date, datetime, time, timedelta
 
 def set_options():
     set_option('display.expand_frame_repr', True)
@@ -10,18 +11,17 @@ def set_options():
     set_option('display.height',1000)
     set_option('display.max_seq_items',100)
 
-def time_converter(x):
-    return time(int(np.floor(((int(x)-1)/2.0))),int(((int(x)-1)/2.0 % 1)*60+15)) #Work out the time from the HH number
-
-def daily_count(df):
+def daily_count(df): #count trading periods in each day
     c = df.fillna(0).groupby(df.fillna(0).index.map(lambda x: x[0])).count()
     return c[c.columns[0]]
-def time_converter(x):
-    return (datetime.combine(date.today(),time(int(np.floor(((int(x)-1)/2.0))),int(((x-1)/2.0 % 1)*60+14.999),59)) + timedelta(seconds=1)).time()#Work out the time from the HH number
-def combine_date_time(df):
+    
+def time_converter(x):  #Work out the time from the HH number
+    return (datetime.combine(date.today(),time(int(np.floor(((int(x)-1)/2.0))),int(((x-1)/2.0 % 1)*60+14.999),59)) + timedelta(seconds=1)).time()
+    
+def combine_date_time(df): #combine date and time columns, used with .apply
     return datetime.combine(df['date'],df['time'])
 
-def timeseries_convert(df):
+def timeseries_convert(df,keep_tp_index=True):
     ''' 
     Convert a MultiIndexed timeseries dataframe from the Data Warehouse 
     into a single datetime indexed timeseries.
@@ -31,8 +31,7 @@ def timeseries_convert(df):
     Daylight savings is a nuisance, we used the CDS Gnash method for this...
     This seems a bit bastardized, surely there is a better way!
     '''
-
-    dc = daily_count(df)
+    dc = daily_count(df,)
     tp46 = dc[dc==46].index #short days
     tp50 = dc[dc==50].index #long days
     tp48 = dc[dc==48].index #normal days
@@ -54,8 +53,32 @@ def timeseries_convert(df):
     ds['time'] = ds.tp1.map(lambda x: time_converter(x)) #convert from trading period mapping to time
     ds['datetime'] = ds.apply(combine_date_time,axis=1)  #and create datetime
     df['datetime'] = ds['datetime'] #set the df index to the new datetime index
+    if keep_tp_index==True:
+	    df['tp'] = ds['tp']
     df=df.set_index('datetime')
     return df
+
+def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_trader_network_ID_level=0):
+    import pandas.io.sql as sql
+    import pyodbc
+    dw_connect = pyodbc.connect('DSN=' + DSN + ';UID=linux_user;PWD=linux')
+    df = sql.read_frame(query, dw_connect)
+    if 'Trading_Date' in df.columns:
+        df['Trading_Date'] = df.Trading_Date.map(lambda x: datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2])))
+        if 'Trading_Period' in df.columns:
+            df = df.set_index(['Trading_Date','Trading_Period'])
+    df = df.sort()
+    if ts_convert == True:
+		df = timeseries_convert(df)
+    if ('Trader_ID' in df.columns) and ('Network_participant' in df.columns):
+        df = df.reset_index().set_index(['Trading_Date','Trading_Period','Trader_ID','Network_participant'])
+        if groupby_trader_network_ID_level>0:
+            df = df.groupby(level=list(arange(groupby_trader_network_ID_level))).sum()
+    return df
+	
+		
+
+
 
 if __name__ == '__main__':
     pass
