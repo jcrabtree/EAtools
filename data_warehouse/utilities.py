@@ -26,9 +26,9 @@ def timeseries_convert(df,keep_tp_index=True):
     Convert a MultiIndexed timeseries dataframe from the Data Warehouse 
     into a single datetime indexed timeseries.
 
-    i.e., from Date,Trading_Period index to datetime index
+    i.e., from Date,Trading_Period index to datetime index (better for plotting in matplotlib)
 
-    Daylight savings is a nuisance, we used the CDS Gnash method for this...
+    Daylight savings is a nuisance, used the CDS Gnash method for this...
     This seems a bit bastardized, surely there is a better way!
     '''
     dc = daily_count(df,)
@@ -58,7 +58,11 @@ def timeseries_convert(df,keep_tp_index=True):
     df=df.set_index('datetime')
     return df
 
-def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_trader_network_ID_level=0):
+def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_level=0):
+	'''
+	Query tool for the Data Warehouse
+	Plan to expand this over all DW tables, more thinking needed... 
+	'''
     import pandas.io.sql as sql
     import pyodbc
     dw_connect = pyodbc.connect('DSN=' + DSN + ';UID=linux_user;PWD=linux')
@@ -72,13 +76,9 @@ def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_trader_netwo
 		df = timeseries_convert(df)
     if ('Trader_ID' in df.columns) and ('Network_participant' in df.columns):
         df = df.reset_index().set_index(['Trading_Date','Trading_Period','Trader_ID','Network_participant'])
-        if groupby_trader_network_ID_level>0:
-            df = df.groupby(level=list(arange(groupby_trader_network_ID_level))).sum()
+        if groupby_level>0:
+            df = df.groupby(level=list(arange(groupby_level))).sum()
     return df
 	
-		
-
-
-
 if __name__ == '__main__':
     pass
