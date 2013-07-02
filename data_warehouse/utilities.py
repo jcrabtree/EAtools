@@ -3,23 +3,25 @@ from pandas import *
 def time_converter(x):
     return time(int(np.floor(((int(x)-1)/2.0))),int(((int(x)-1)/2.0 % 1)*60+15)) #Work out the time from the HH number
 
+def daily_count(df):
+    c = df.fillna(0).groupby(df.fillna(0).index.map(lambda x: x[0])).count()
+    return c[c.columns[0]]
+def time_converter(x):
+    return (datetime.combine(date.today(),time(int(np.floor(((int(x)-1)/2.0))),int(((x-1)/2.0 % 1)*60+14.999),59)) + timedelta(seconds=1)).time()#Work out the time from the HH number
+def combine_date_time(df):
+    return datetime.combine(df['date'],df['time'])
+
 def timeseries_convert(df):
-	''' 
-	Convert a MultiIndexed timeseries dataframe from the Data Warehouse 
-	into a single datetime indexed timeseries.
-	
-	i.e., from Date,Trading_Period index to datetime index
-	
-	Daylight savings is a nuisance, we used the CDS Gnash method for this...
-	This seems a bit bastardized, surely there is a better way!
-	'''
-    def daily_count(df):
-        c = df.fillna(0).groupby(df.fillna(0).index.map(lambda x: x[0])).count()
-        return c[c.columns[0]]
-    def time_converter(x):
-        return (datetime.combine(date.today(),time(int(np.floor(((int(x)-1)/2.0))),int(((x-1)/2.0 % 1)*60+14.999),59)) + timedelta(seconds=1)).time()#Work out the time from the HH number
-    def combine_date_time(df):
-        return datetime.combine(df['date'],df['time'])
+    ''' 
+    Convert a MultiIndexed timeseries dataframe from the Data Warehouse 
+    into a single datetime indexed timeseries.
+
+    i.e., from Date,Trading_Period index to datetime index
+
+    Daylight savings is a nuisance, we used the CDS Gnash method for this...
+    This seems a bit bastardized, surely there is a better way!
+    '''
+
     dc = daily_count(df)
     tp46 = dc[dc==46].index #short days
     tp50 = dc[dc==50].index #long days
