@@ -2,7 +2,10 @@
 #D Hume, 3/10/2012
 #
 #Dependencies, pandas,pbs,datetime.date,datetime.datetime,datetime.time,datetime.timedelta
-from pbs import Command
+
+import sys
+if sys.platform.startswith("linux"):
+   from pbs import Command
 from pandas import read_csv
 from datetime import date, datetime, time, timedelta
 from pandas import Series,DataFrame,Panel
