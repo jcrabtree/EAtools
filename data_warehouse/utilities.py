@@ -81,6 +81,8 @@ def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_level=0):
     return df
 
 def get_prices(dateBeg,dateEnd,tpBeg,tpEnd):
+    import pandas.io.sql as sql
+    import pyodbc
     
     def parsedate(x):
         return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
