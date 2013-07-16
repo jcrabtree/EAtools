@@ -80,7 +80,7 @@ def dw_grab(query,DSN,ts_convert = False,keep_tp_index=True,groupby_level=0):
             df = df.groupby(level=list(arange(groupby_level))).sum()
     return df
 
-def get_prices(dateBeg,dateEnd,tpBeg,tpEnd):
+def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd):
     import pandas.io.sql as sql
     import pyodbc
     
@@ -101,7 +101,7 @@ def get_prices(dateBeg,dateEnd,tpBeg,tpEnd):
         LEN(atomic.Atm_Spdsolved_Pnodes.pnode) > 3 And
         LEN(atomic.Atm_Spdsolved_Pnodes.pnode) < 8
      """ % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd)
-    t = sql.read_frame(q,conNZX,coerce_float=True) 
+    t = sql.read_frame(q,connection,coerce_float=True) 
     t['Date'] = t['Date'].map(lambda x: parsedate(x))
     t = t.set_index(['Date','TP','node']).price
     t = t.unstack(level=2)
