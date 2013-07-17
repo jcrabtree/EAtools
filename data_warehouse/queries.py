@@ -1,12 +1,19 @@
 from pandas import *
 from datetime import date, datetime, time, timedelta
 
-def get_ramu_summary(connection,dateBeg,dateEnd,company):
+def get_ramu_summary(connection,dateBeg,dateEnd):
     '''island energy, reserve and hvdc summary'''
+
+    import pandas.io.sql as sql
+    import pyodbc
+    import datetime as dt
+    def parsedate(x):
+        return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+
     q="""Select
          atomic.Atm_Spdsolved_Islands.DIM_DTTM_ID,
-         atomic.Atm_Spdsolved_Islands.DATA_DATE,
-         atomic.Atm_Spdsolved_Islands.PERIOD,
+         atomic.Atm_Spdsolved_Islands.DATA_DATE As 'Date',
+         atomic.Atm_Spdsolved_Islands.PERIOD As 'TP',
          atomic.Atm_Spdsolved_Islands.island,
          atomic.Atm_Spdsolved_Islands.reference_price,
          atomic.Atm_Spdsolved_Islands.reserve_price_six_sec,
@@ -30,18 +37,18 @@ def get_ramu_summary(connection,dateBeg,dateEnd,company):
          atomic.DIM_DATE_TIME.DIM_DATE_TIME_ID
     Where
          atomic.DIM_DATE_TIME.DIM_CIVIL_DATE >= '%s' And
-         atomic.DIM_DATE_TIME.DIM_CIVIL_DATE >= '%s' """ % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),company)
+         atomic.DIM_DATE_TIME.DIM_CIVIL_DATE <= '%s' """ % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"))
     t = sql.read_frame(q,connection,coerce_float=True) 
-    #t['Date'] = t['Date'].map(lambda x: parsedate(x))
-    #t = t.set_index(['Date','TP','node']).price
-    #t = t.unstack(level=2)
+    t['Date'] = t['Date'].map(lambda x: parsedate(x))
+    t = t.set_index(['Date','TP','island'])
+    del t['DIM_DTTM_ID']
     return t
 
 
 
 
 def get_rm_generation(connection,dateBeg,dateEnd,company):
-	'''rm generation by parent company, from Ramu'''
+    '''rm generation by parent company, from Ramu'''
     import pandas.io.sql as sql
     import pyodbc
     import datetime as dt
@@ -55,9 +62,9 @@ def get_rm_generation(connection,dateBeg,dateEnd,company):
        com.RM_Generation_by_trader On com.RM_Generation_by_trader.Trader_ID =
        com.MAP_Participant_names.Trader_Id
     Where
-       com.RM_Generation_by_trader.Trading_Date >= '2012-12-31' And
-       com.RM_Generation_by_trader.Trading_Date <= '2013-03-02' And
-       com.MAP_Participant_names.Parent_Company_ID Like 'MERI'
+       com.RM_Generation_by_trader.Trading_Date >= '%s' And
+       com.RM_Generation_by_trader.Trading_Date <= '%s' And
+       com.MAP_Participant_names.Parent_Company_ID Like '%s'
     Group By
        com.RM_Generation_by_trader.DTTM_ID, com.RM_Generation_by_trader.POC,
        com.MAP_Participant_names.Parent_Company_ID
@@ -72,7 +79,7 @@ def get_rm_generation(connection,dateBeg,dateEnd,company):
     return t
 
 def get_rm_demand(connection,dateBeg,dateEnd,company):
-	'''rm demand by parent company, from Ramu'''
+    '''rm demand by parent company, from Ramu'''
     import pandas.io.sql as sql
     import pyodbc
     import datetime as dt
@@ -86,9 +93,9 @@ def get_rm_demand(connection,dateBeg,dateEnd,company):
    From
         com.RM_Demand_by_trader Inner Join
         com.MAP_Participant_names On com.RM_Demand_by_trader.Trader_ID =
-        com.MAP_Participant_names.Trader_Id Inner Join
+          com.MAP_Participant_names.Trader_Id Inner Join
         com.MAP_NSP_POC_to_region On com.RM_Demand_by_trader.POC =
-        com.MAP_NSP_POC_to_region.POC
+          com.MAP_NSP_POC_to_region.POC
    Where
         com.RM_Demand_by_trader.Trading_Date >= '%s' And
         com.RM_Demand_by_trader.Trading_Date <= '%s' And
@@ -109,14 +116,17 @@ def get_rm_demand(connection,dateBeg,dateEnd,company):
 
 
 def get_qwop(connection,dateBeg,dateEnd,company):
-	'''Quantity weighted offer price query, from Ramu'''
+    '''Quantity weighted offer price query, from Ramu'''
+    def parsedate(x):
+        return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+
     import pandas.io.sql as sql
     import pyodbc
     import datetime as dt
     q = """Select
          com.Fp_Offers.DTTM_ID,
-         com.Fp_Offers.Trading_DATE,
-         com.Fp_Offers.Trading_Period,
+         com.Fp_Offers.Trading_DATE as 'Date',
+         com.Fp_Offers.Trading_Period as 'TP',
          com.MAP_PNode_to_POC_and_Island.Island,
          com.MAP_Participant_names.Parent_Company_ID,
          (Sum((com.Fp_Offers.Offer_Price * com.Fp_Offers.Offer_Quantity)) /
@@ -140,8 +150,8 @@ def get_qwop(connection,dateBeg,dateEnd,company):
       order by
          com.Fp_Offers.DTTM_ID""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),company)
     t = sql.read_frame(q,connection,coerce_float=True) 
-    #t['Date'] = t['Date'].map(lambda x: parsedate(x))
-    #t = t.set_index(['Date','TP','node']).price
+    t['Date'] = t['Date'].map(lambda x: parsedate(x))
+    t = t.set_index(['Date','TP']).QWOP
     #t = t.unstack(level=2)
     return t
 
