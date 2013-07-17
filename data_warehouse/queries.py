@@ -1,6 +1,43 @@
 from pandas import *
 from datetime import date, datetime, time, timedelta
 
+def qwop(connection,dateBeg,dateEnd):
+    import pandas.io.sql as sql
+    import pyodbc
+    import datetime as dt
+    q = """Select
+         com.Fp_Offers.DTTM_ID,
+         com.Fp_Offers.Trading_DATE,
+         com.Fp_Offers.Trading_Period,
+         com.MAP_PNode_to_POC_and_Island.Island,
+         com.MAP_Participant_names.Parent_Company_ID,
+         (Sum((com.Fp_Offers.Offer_Price * com.Fp_Offers.Offer_Quantity)) /
+          Sum(com.Fp_Offers.Offer_Quantity)) As 'QWOP'
+      From
+         com.Fp_Offers Inner Join
+         com.MAP_Participant_names On com.Fp_Offers.Trader_Id =
+         com.MAP_Participant_names.Trader_Id Inner Join
+         com.MAP_PNode_to_POC_and_Island On com.Fp_Offers.PNode =
+         com.MAP_PNode_to_POC_and_Island.PNode
+      Where
+         com.Fp_Offers.Trading_DATE >= '%s' And
+         com.Fp_Offers.Trading_DATE <= '%s' And
+         com.Fp_Offers.trade_type = 'ENOF' And
+         com.MAP_Participant_names.Parent_Company_ID = 'MERI' And
+         com.MAP_PNode_to_POC_and_Island.Island = 'SI'
+      Group By
+         com.Fp_Offers.DTTM_ID, com.Fp_Offers.Trading_DATE,
+         com.Fp_Offers.Trading_Period, com.MAP_PNode_to_POC_and_Island.Island,
+         com.MAP_Participant_names.Parent_Company_ID
+      order by
+         com.Fp_Offers.DTTM_ID""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"))
+    t = sql.read_frame(q,connection,coerce_float=True) 
+    #t['Date'] = t['Date'].map(lambda x: parsedate(x))
+    #t = t.set_index(['Date','TP','node']).price
+    #t = t.unstack(level=2)
+    return t
+
+
 def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd):
     import pandas.io.sql as sql
     import pyodbc
