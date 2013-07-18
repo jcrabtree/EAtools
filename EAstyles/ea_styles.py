@@ -61,7 +61,7 @@ def ea_report_style():
     mpl.rcParams['lines.markersize']=10           #sets marker properties if switched on in plot command
     mpl.rcParams['lines.markeredgewidth']=.5
     mpl.rcParams['xtick.direction']='out'         #sets direction of tick mark
-    mpl.rcParams['lines.linewidth']=6             #sets line width
+    mpl.rcParams['lines.linewidth']=2             #sets line width
     mpl.rcParams['grid.linestyle']='steps--'      #sets grid line style
     mpl.rcParams['axes.grid']=True
     mpl.rcParams['grid.alpha']=0.6                #sets greyness of grid lines
