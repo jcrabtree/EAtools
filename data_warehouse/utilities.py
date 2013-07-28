@@ -112,11 +112,11 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd):
     
     return t
 
-def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd):
+def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
     import pandas.io.sql as sql
     import pyodbc
     import datetime as dt
- 
+     
     def parsedate(x):
         print x
         return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
@@ -138,9 +138,11 @@ def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd):
      """ % (dateBeg,dateEnd,tpBeg,tpEnd)
     
     t = sql.read_frame(q,connection,coerce_float=True) 
-    t['Date'] = t['Date'].map(lambda x: parsedate(x))
-    t = t.set_index(['Date','TP','node']).demand
-    t = t.unstack(level=2)
+    
+    if not windows:
+    	t['Date'] = t['Date'].map(lambda x: parsedate(x))
+        t = t.set_index(['Date','TP','node']).demand
+        t = t.unstack(level=2)
     
     return t
     
