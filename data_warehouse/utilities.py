@@ -118,7 +118,9 @@ def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd):
     import datetime as dt
  
     def parsedate(x):
+        print x
         return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        
     q=r"""Select 
         atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',
         atomic.Atm_Spdsolved_Pnodes.period as 'TP',
