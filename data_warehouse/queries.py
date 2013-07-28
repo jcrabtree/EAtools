@@ -243,8 +243,11 @@ def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
     
     if not windows:
         t['Date'] = t['Date'].map(lambda x: parsedate(x))
-        t = t.set_index(['Date','TP','node']).demand
-        t = t.unstack(level=2)
+    
+    t = t.set_index(['Date','TP','node']).demand
+    t = t.unstack(level=2)
+    
+        
     
     return t
 
