@@ -156,7 +156,7 @@ def get_qwop(connection,dateBeg,dateEnd,company):
     return t
 
 
-def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None):
+def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
     import pandas.io.sql as sql
     import pyodbc
     import datetime as dt
@@ -189,7 +189,8 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None):
             t[node]=s[node]
 
         t=DataFrame(t)
-        t['Date'] = t['Date'].map(lambda x: parsedate(x))
+        if windows ==False:
+            t['Date'] = t['Date'].map(lambda x: parsedate(x))
         t = t.set_index(['Date','TP'])
 
     else:
@@ -208,7 +209,8 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None):
               LEN(atomic.Atm_Spdsolved_Pnodes.pnode) > 3 And
               LEN(atomic.Atm_Spdsolved_Pnodes.pnode) < 8""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd) 
         t = sql.read_frame(q,connection,coerce_float=True) 
-        t['Date'] = t['Date'].map(lambda x: parsedate(x))
+        if windows == False:
+            t['Date'] = t['Date'].map(lambda x: parsedate(x))
         t = t.set_index(['Date','TP','node']).price
         t = t.unstack(level=2)
     
