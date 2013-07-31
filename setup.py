@@ -15,5 +15,5 @@ setup(name='EAtools',
                 'EAtools.EAstyles',
                 'EAtools.cds_gnash',
                 'EAtools.data_warehouse'],
-      install_requires=['pandas',],
+      install_requires=[],
       zip_safe=False)

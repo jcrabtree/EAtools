@@ -13,5 +13,8 @@ cds_gnash/ contains modules to interact with Gnash.exe
 Installation:
    sudo python setup.py install
 
+Requires: pandas 0.12 or later
+
 Inspired by: https://github.com/NigelCleland/nzem
+
              http://www.scotttorborg.com/python-packaging/index.html

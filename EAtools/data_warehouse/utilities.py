@@ -10,14 +10,14 @@ month1 = {0:'Jan', 1:'Feb', 2:'Mar', 3:'Apr', 4:'May', 5:'Jun', 6:'Jul', 7:'Aug'
 month2 = {0:'January',1:'February',2:'March',3:'April',4:'May',5:'June',6:'July',7:'August',8:'September',9:'October',10:'November',11:'December'}
 
 def set_options():
-    set_option('display.expand_frame_repr', True)
-    set_option('display.line_width',10000)
-    set_option('display.max_columns',10000)
-    set_option('display.max_rows',10000)
-    set_option('display.max_colwidth',10000)
-    set_option('display.max_info_columns',10000)
-    set_option('display.height',1000)
-    set_option('display.max_seq_items',100)
+    pd.set_option('display.expand_frame_repr', True)
+    pd.set_option('display.line_width',10000)
+    pd.set_option('display.max_columns',10000)
+    pd.set_option('display.max_rows',10000)
+    pd.set_option('display.max_colwidth',10000)
+    pd.set_option('display.max_info_columns',10000)
+    pd.set_option('display.height',1000)
+    pd.set_option('display.max_seq_items',100)
 
 def daily_count(df): #count trading periods in each day
     c = df.fillna(0).groupby(df.fillna(0).index.map(lambda x: x[0])).count()
@@ -90,8 +90,8 @@ def calc_mean_percentile(data,percentile_width,future=False):
     lower_percentile = data_grouped.describe(percentile_width=percentile_width)
     lpn = 50 - percentile_width/2.0
     upn = 50 + percentile_width/2.0
-    lpn=unique(list(lower_percentile.index.get_level_values(2)))[0]       
-    upn=unique(list(lower_percentile.index.get_level_values(2)))[2]  
+    lpn=np.unique(list(lower_percentile.index.get_level_values(2)))[0]       
+    upn=np.unique(list(lower_percentile.index.get_level_values(2)))[2]  
     lower_percentile = lower_percentile.ix[lower_percentile.index.get_level_values(2)==lpn].reset_index().rename(columns={'level_0':'month','level_1':'day'}).set_index(['month','day'])
     del lower_percentile['level_2']
     upper_percentile = data_grouped.describe(percentile_width=percentile_width)
@@ -125,7 +125,7 @@ def panel_beater(storage,inflow,days,percentile_width=80):
 
 #Hydrology plot functions
 
-def hydrology_plot(panel):
+def hydrology_plot(panel,title=None):
     import matplotlib.pyplot as plt
     fig = plt.figure(1,figsize=[25,20])
     ax1 = fig.add_subplot(211)
