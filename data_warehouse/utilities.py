@@ -61,7 +61,94 @@ def timeseries_convert(df,keep_tp_index=True):
     df=df.set_index('datetime')
     return df
 
-  
+#Functions for munging up Comit Hydro data
+
+def calc_mean_percentile(data,percentile_width,future=False):
+    '''This function, given a historic timeseries, returns a time series dataframe that includes the historic 
+       daily mean and percentiles of the given data.
+       The function returns a repeating annual dataframe indexed from; the start date of the data supplied to either:
+           (a) the end date of the given data (if future==False), or;
+           (b) out to the end of next year, (if future==True), where next year is the year after the function is called.
+       
+       The columns returned are; mean, and the upper and lower percentiles (based on the given percentile width).'''
+               
+    def time_serializer(annual_stats,index):
+        '''Generate a dummy dataframe, indexed with given index''' 
+        df_index = pd.DataFrame(index=index)
+        for col in annual_stats.columns:
+            df_index[col] = df_index.index.map(lambda x: annual_stats.ix[(x.month,x.day),col])
+        return df_index
+    
+    data_grouped = data.groupby([lambda x: x.month,lambda y: y.day]) #grouped my month and day
+    data_mean = data_grouped.mean()
+    lower_percentile = data_grouped.describe(percentile_width=percentile_width)
+    lpn = 50 - percentile_width/2.0
+    upn = 50 + percentile_width/2.0
+    lpn=unique(list(lower_percentile.index.get_level_values(2)))[0]       
+    upn=unique(list(lower_percentile.index.get_level_values(2)))[2]  
+    lower_percentile = lower_percentile.ix[lower_percentile.index.get_level_values(2)==lpn].reset_index().rename(columns={'level_0':'month','level_1':'day'}).set_index(['month','day'])
+    del lower_percentile['level_2']
+    upper_percentile = data_grouped.describe(percentile_width=percentile_width)
+    upper_percentile = upper_percentile.ix[upper_percentile.index.get_level_values(2)==upn].reset_index().rename(columns={'level_0':'month','level_1':'day'}).set_index(['month','day'])
+    del upper_percentile['level_2']
+    data_cat = pd.DataFrame({'mean':data_mean,\
+                            (("%sth percentile"% lpn.replace('.0','')).replace('%','')):lower_percentile[0],\
+                            (("%sth percentile"% upn.replace('.0','')).replace('%','')):upper_percentile[0]}) #historic data
+    
+    if future == False:
+        #Create full indexed dummy series all the way back to 1932...to today
+        data_cat = time_serializer(data_cat,data.index)
+        data_cat['Actual'] = data
+
+    else: #create a dummy index out till the end of the next year
+        daily_index = pd.date_range(data.index[0],datetime(datetime.now().year+1,12,31), freq='D')
+        data_cat = time_serializer(data_cat,daily_index)
+        data_cat['Actual'] = data
+
+    return data_cat
+
+def panel_beater(storage,inflow,days,percentile_width=80):
+    '''Given Storage and Inflow time series data, this function returns a panel object for each catchment containing:
+           Items: Storage and Inflows 
+           Major_axis axis: dates for the last x days of the data
+           Minor_axis axis: 10th percentile,90th percentile, mean and Actual for each item.'''
+    storage = calc_mean_percentile(storage,percentile_width)
+    inflows = calc_mean_percentile(inflow,percentile_width)
+    return pd.Panel({'Storage':storage.tail(days),'Inflows':inflows.tail(days)})
+
+def hydrology_plot(panel):
+    fig = figure(1,figsize=[25,20])
+    ax1 = fig.add_subplot(211)
+    ax2 = fig.add_subplot(212, sharex=ax1)
+
+    def hydro_plotter(df,ax,ylabel,title,colour1,colour2,colour3):
+        x = df.index
+        up = df.columns[0]
+        lp = df.columns[1]
+        act = df.columns[3]
+        ax.fill_between(x,df[lp],df[up],color=colour2)
+        df['mean'].plot(ax=ax,linewidth = 3,color=colour1)
+        df[act].plot(ax=ax,linewidth = 3,color=colour3)
+        xlabels = ax.get_xticklabels() 
+        for label in xlabels: 
+            label.set_rotation(0) 
+        ax.set_xlabel('')
+        ax.set_ylabel(ylabel)
+        ax.legend()
+        a = Line2D((0,1),(0,0), color=colour3)
+        m = Line2D((0,1),(0,0), color=colour1)
+        p = Rectangle((0, 0), 1, 1, color=colour2)
+        ax.legend([a,m,p], ["Actual","Mean since 1932","10th-90th percentile"])
+    ota_colour1 = ea.ea_s['or1']
+    ota_colour2 = ea.ea_s['or2']
+    ota_colour3 = ea.ea_s['rd1']
+    ben_colour1 = ea.ea_s['bl1']
+    ben_colour2 = ea.ea_s['be1']
+    ben_colour3 = ea.ea_s['pp1']
+
+    hydro_plotter(panel['Storage'],ax1,'Storage (GWh)',title,ben_colour1,ben_colour2,ben_colour3)
+    hydro_plotter(panel['Inflows'],ax2,'Inflows (GWh/day)',title,ota_colour1,ota_colour2,ota_colour3)
+
 
 
 if __name__ == '__main__':
