@@ -1,6 +1,6 @@
 EAtools:
 
-Author: David Hume
+Author: Electricity Authority, New Zealand, (David Hume)
 
 Version 0.1
 
@@ -10,4 +10,8 @@ data_warehouse/ contains modules to improve efficiency when requesting (SQL) and
 
 cds_gnash/ contains modules to interact with Gnash.exe 
 
+Installation:
+   sudo python setup.py install
+
 Inspired by: https://github.com/NigelCleland/nzem
+             http://www.scotttorborg.com/python-packaging/index.html

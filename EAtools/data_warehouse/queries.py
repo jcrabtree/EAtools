@@ -1,14 +1,14 @@
-from pandas import *
+import pandas as pd
+import numpy as np
 from datetime import date, datetime, time, timedelta
+import pandas.io.sql as sql
+import pyodbc
+import os,sys
 
 def get_ramu_summary(connection,dateBeg,dateEnd):
     '''island energy, reserve and hvdc summary'''
-
-    import pandas.io.sql as sql
-    import pyodbc
-    import datetime as dt
     def parsedate(x):
-        return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
 
     q="""Select
          atomic.Atm_Spdsolved_Islands.DIM_DTTM_ID,
@@ -49,9 +49,6 @@ def get_ramu_summary(connection,dateBeg,dateEnd):
 
 def get_rm_generation(connection,dateBeg,dateEnd,company):
     '''rm generation by parent company, from Ramu'''
-    import pandas.io.sql as sql
-    import pyodbc
-    import datetime as dt
     q = """Select
        com.RM_Generation_by_trader.DTTM_ID,
        com.RM_Generation_by_trader.POC,
@@ -80,9 +77,6 @@ def get_rm_generation(connection,dateBeg,dateEnd,company):
 
 def get_rm_demand(connection,dateBeg,dateEnd,company):
     '''rm demand by parent company, from Ramu'''
-    import pandas.io.sql as sql
-    import pyodbc
-    import datetime as dt
     q = """Select
         com.RM_Demand_by_trader.DTTM_ID,
         com.RM_Demand_by_trader.Trading_Date,
@@ -118,11 +112,7 @@ def get_rm_demand(connection,dateBeg,dateEnd,company):
 def get_qwop(connection,dateBeg,dateEnd,company):
     '''Quantity weighted offer price query, from Ramu'''
     def parsedate(x):
-        return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
-
-    import pandas.io.sql as sql
-    import pyodbc
-    import datetime as dt
+        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
     q = """Select
          com.Fp_Offers.DTTM_ID,
          com.Fp_Offers.Trading_DATE as 'Date',
@@ -157,11 +147,8 @@ def get_qwop(connection,dateBeg,dateEnd,company):
 
 
 def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
-    import pandas.io.sql as sql
-    import pyodbc
-    import datetime as dt
     def parsedate(x):
-        return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
     if nodelist:
         t = {}
         for node in nodelist:
@@ -217,13 +204,10 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=Fals
     return t
 
 def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
-    import pandas.io.sql as sql
-    import pyodbc
-    import datetime as dt
      
     def parsedate(x):
         print x
-        return dt.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
         
     q=r"""Select 
         atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',
@@ -252,7 +236,7 @@ def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
  
  #Functions for reading Hydrology data input - currently outside of the DW...
  
- def read_comit_data(directory,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
+def read_comit_data(directory,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
     '''This function reads and processes the Comit Hydro data from the linux box Walter.  
        It only work if the Comit hydro data is avaliable in the directory supplied.
        Note: it is planned that this data will be included in the Data Warehouse, in which case this function will

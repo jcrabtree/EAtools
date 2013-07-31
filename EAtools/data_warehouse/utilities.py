@@ -1,5 +1,10 @@
-from pandas import *
+import pandas as pd
+import numpy as np
 from datetime import date, datetime, time, timedelta
+import pandas.io.sql as sql
+import pyodbc
+import os,sys
+from EAtools.EAstyles.ea_styles import ea_p,ea_s
 
 month1 = {0:'Jan', 1:'Feb', 2:'Mar', 3:'Apr', 4:'May', 5:'Jun', 6:'Jul', 7:'Aug', 8:'Sep', 9:'Oct', 10:'Nov', 11:'Dec'}
 month2 = {0:'January',1:'February',2:'March',3:'April',4:'May',5:'June',6:'July',7:'August',8:'September',9:'October',10:'November',11:'December'}
@@ -38,7 +43,7 @@ def timeseries_convert(df,keep_tp_index=True):
     tp46 = dc[dc==46].index #short days
     tp50 = dc[dc==50].index #long days
     tp48 = dc[dc==48].index #normal days
-    ds = DataFrame(columns=['dls'],index=df.index) #Create temp dataframe for mapping
+    ds = pd.DataFrame(columns=['dls'],index=df.index) #Create temp dataframe for mapping
     ds.ix[ds.index.map(lambda x: x[0].date() in tp46),'dls'] = 46 #set value to 46 on short days
     ds.ix[ds.index.map(lambda x: x[0].date() in tp48),'dls'] = 48 #to 48 on normal days, and,
     ds.ix[ds.index.map(lambda x: x[0].date() in tp50),'dls'] = 50 #to 50 on long days
@@ -71,7 +76,8 @@ def calc_mean_percentile(data,percentile_width,future=False):
            (b) out to the end of next year, (if future==True), where next year is the year after the function is called.
        
        The columns returned are; mean, and the upper and lower percentiles (based on the given percentile width).'''
-               
+
+    
     def time_serializer(annual_stats,index):
         '''Generate a dummy dataframe, indexed with given index''' 
         df_index = pd.DataFrame(index=index)
@@ -116,8 +122,12 @@ def panel_beater(storage,inflow,days,percentile_width=80):
     inflows = calc_mean_percentile(inflow,percentile_width)
     return pd.Panel({'Storage':storage.tail(days),'Inflows':inflows.tail(days)})
 
+
+#Hydrology plot functions
+
 def hydrology_plot(panel):
-    fig = figure(1,figsize=[25,20])
+    import matplotlib.pyplot as plt
+    fig = plt.figure(1,figsize=[25,20])
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212, sharex=ax1)
 
@@ -135,16 +145,16 @@ def hydrology_plot(panel):
         ax.set_xlabel('')
         ax.set_ylabel(ylabel)
         ax.legend()
-        a = Line2D((0,1),(0,0), color=colour3)
-        m = Line2D((0,1),(0,0), color=colour1)
-        p = Rectangle((0, 0), 1, 1, color=colour2)
+        a = plt.Line2D((0,1),(0,0), color=colour3)
+        m = plt.Line2D((0,1),(0,0), color=colour1)
+        p = plt.Rectangle((0, 0), 1, 1, color=colour2)
         ax.legend([a,m,p], ["Actual","Mean since 1932","10th-90th percentile"])
-    ota_colour1 = ea.ea_s['or1']
-    ota_colour2 = ea.ea_s['or2']
-    ota_colour3 = ea.ea_s['rd1']
-    ben_colour1 = ea.ea_s['bl1']
-    ben_colour2 = ea.ea_s['be1']
-    ben_colour3 = ea.ea_s['pp1']
+    ota_colour1 = ea_s['or1']
+    ota_colour2 = ea_s['or2']
+    ota_colour3 = ea_s['rd1']
+    ben_colour1 = ea_s['bl1']
+    ben_colour2 = ea_s['be1']
+    ben_colour3 = ea_s['pp1']
 
     hydro_plotter(panel['Storage'],ax1,'Storage (GWh)',title,ben_colour1,ben_colour2,ben_colour3)
     hydro_plotter(panel['Inflows'],ax2,'Inflows (GWh/day)',title,ota_colour1,ota_colour2,ota_colour3)

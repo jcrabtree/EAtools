@@ -3,13 +3,15 @@
 #
 #Dependencies, pandas,pbs,datetime.date,datetime.datetime,datetime.time,datetime.timedelta
 
-import sys
+import pandas as pd
+import numpy as np
+from datetime import date, datetime, time, timedelta
+import pandas.io.sql as sql
+import pyodbc
+import os,sys
+
 if sys.platform.startswith("linux"):
    from pbs import Command
-from pandas import read_csv
-from datetime import date, datetime, time, timedelta
-from pandas import Series,DataFrame,Panel
-import numpy as np
 
 def Gnasher(input_string,output_file): 
     '''Run Gnash from within python session.
@@ -19,13 +21,13 @@ def Gnasher(input_string,output_file):
 
 def GnashChew(datafile): 
 
-   Gin=read_csv(datafile,header = 1,skiprows = [2],na_values = ['?','       ? ','       ?','          ? ','          ?','        ?']) #First read to obtain dump file
+   Gin=pd.read_csv(datafile,header = 1,skiprows = [2],na_values = ['?','       ? ','       ?','          ? ','          ?','        ?']) #First read to obtain dump file
    names = Gin.columns #get names used by Gnash
    newnames=[]
    for name in names: 
       name = name.replace('.','_') #replace . in name with _ (not required but makes working with the DataFrame easier, i.e., Gin.Aux_Date can be used instead of Gin['Aux.Date'] to get the data column.
       newnames.append(name)        #create a new names list
-   Gin=read_csv(datafile,header = 1,skiprows = [2],na_values = ['?','       ? ','       ?','          ? ','          ?','        ?'],names=newnames, converters={'Aux_DayClock':ordinal_converter},parse_dates=True) #reread in datafile with new names (this is a silly way to do this should use rename with a dictionary object instead!)
+   Gin=pd.read_csv(datafile,header = 1,skiprows = [2],na_values = ['?','       ? ','       ?','          ? ','          ?','        ?'],names=newnames, converters={'Aux_DayClock':ordinal_converter},parse_dates=True) #reread in datafile with new names (this is a silly way to do this should use rename with a dictionary object instead!)
    Gin = Gin.set_index('Aux_DayClock')
    return Gin
 
