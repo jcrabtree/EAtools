@@ -5,6 +5,7 @@ import pandas.io.sql as sql
 import pyodbc
 import os,sys
 from EAtools.EAstyles.ea_styles import ea_p,ea_s
+import matplotlib.pyplot as plt
 
 month1 = {0:'Jan', 1:'Feb', 2:'Mar', 3:'Apr', 4:'May', 5:'Jun', 6:'Jul', 7:'Aug', 8:'Sep', 9:'Oct', 10:'Nov', 11:'Dec'}
 month2 = {0:'January',1:'February',2:'March',3:'April',4:'May',5:'June',6:'July',7:'August',8:'September',9:'October',10:'November',11:'December'}
@@ -126,7 +127,6 @@ def panel_beater(storage,inflow,days,percentile_width=80):
 #Hydrology plot functions
 
 def hydrology_plot(panel,title=None):
-    import matplotlib.pyplot as plt
     fig = plt.figure(1,figsize=[25,20])
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212, sharex=ax1)
@@ -159,7 +159,38 @@ def hydrology_plot(panel,title=None):
     hydro_plotter(panel['Storage'],ax1,'Storage (GWh)',title,ben_colour1,ben_colour2,ben_colour3)
     hydro_plotter(panel['Inflows'],ax2,'Inflows (GWh/day)',title,ota_colour1,ota_colour2,ota_colour3)
 
+#HRC plotter
+def hrc_plot(hrc,actual,means):
+           
+    fig = plt.figure(1,figsize=[25,20])
+    ax1 = fig.add_subplot(111)
+    colours = {'1%':ea_p['yl2'],'2%':ea_p['yl1'],'4%':ea_s['or2'],'6%':ea_s['or1'],'8%':ea_p['rd2'],'10%':ea_p['rd1']}
+    
+    def hrc_plotter(HRC,actual,means,ax,ylabel,colours):
 
+        x = HRC.index
+        for c in HRC.columns:
+            HRC[c].plot(color=colours[c])
+            #ax.fill_between(x,HRC[c],color=colours[c])
+            xlabels = ax.get_xticklabels() 
+        HRC['10%'].plot(color=ea_p['rd1'],linewidth=4)
+        means.plot(color=ea_s['gy2'],linewidth=6)
+        actual.plot(color=ea_p['bl1'],linewidth=4)
+        for label in xlabels: 
+            label.set_rotation(0) 
+        ax.set_xlabel('')
+        ax.set_ylabel(ylabel)
+        act1 = plt.Line2D((0,1),(0,0), color=ea_p['bl1'],linewidth=4)
+        mean1= plt.Line2D((0,1),(0,0), color=ea_p['gy2'],linewidth=6)
+        hrc1 = plt.Line2D((0,1),(0,0), color=colours['1%'])
+        hrc2 = plt.Line2D((0,1),(0,0), color=colours['2%'])
+        hrc4 = plt.Line2D((0,1),(0,0), color=colours['4%'])
+        hrc6 = plt.Line2D((0,1),(0,0), color=colours['6%'])
+        hrc8 = plt.Line2D((0,1),(0,0), color=colours['8%'])
+        hrc10 = plt.Line2D((0,1),(0,0), color=colours['10%'],linewidth=4)
+        ax.legend([act1,mean1,hrc1,hrc2,hrc4,hrc6,hrc8,hrc10], ["Actual storage","Mean storage","1% HRC","2% HRC","4% HRC","6% HRC","8% HRC","10% HRC"])
+
+    hrc_plotter(hrc,actual,means,ax1,'GWh',colours)
 
 if __name__ == '__main__':
     pass

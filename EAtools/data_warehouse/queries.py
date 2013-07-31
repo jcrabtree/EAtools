@@ -5,6 +5,7 @@ import pandas.io.sql as sql
 import pyodbc
 import os,sys
 import urllib2
+import xlrd
 
 def get_ramu_summary(connection,dateBeg,dateEnd):
     '''island energy, reserve and hvdc summary'''
@@ -237,14 +238,14 @@ def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
  
  #Functions for reading Hydrology data input - currently outside of the DW...
  
-def read_comit_data(directory,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
-    '''This function reads and processes the Comit Hydro data from the linux box Walter.  
-       It only work if the Comit hydro data is avaliable in the directory supplied.
-       Note: it is planned that this data will be included in the Data Warehouse, in which case this function will
-       change to an SQL query.  For now this is how we do it.'''
-    os.chdir(directory)
-    inflows = pd.read_pickle('inflows.pickle')
-    storage = pd.read_pickle('storage.pickle')
+def get_comit_data(inflow_pickle,storage_pickle,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
+    '''This function reads and processes Comit Hydro data.
+      
+       Note: it is planned that this data will in the future be included 
+       in the Data Warehouse, in which case this function will change to
+       an SQL query.'''
+    inflows = pd.read_pickle(inflow_pickle)
+    storage = pd.read_pickle(storage_pickle)
     inflows=inflows[inflows.index.map(lambda x: x.year)>=since] #take data since 1932
     storage=storage[storage.index.map(lambda x: x.year)>=since]
     inflows=inflows*24.0/1000.0 #convert to GWh
@@ -254,13 +255,34 @@ def read_comit_data(directory,since=1932,catchments = ['Taupo','Tekapo','Pukaki'
 #System Operator HRC downloader
 
 def get_SO_HRC(link):
-    '''This function downloads the SO hydro rick curves, returning pandas dataframe objects for the SI and NZ.
-    Note: This worked on 01/08/2013, no guarantees it will work into the future as dependend on xlsx file format'''
+    '''This function downloads the SO hydro risk curves, returning 
+       pandas dataframe objects for the SI and NZ.
+       Note: This worked on 01/08/2013, no guarantees it will work into 
+             the future as dependent on xlsx file format'''
     HRC_SO = pd.ExcelFile(urllib2.urlopen(link))
     NZ = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,:6].T
     NZ = NZ.rename(index = dict(zip(NZ.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
     SI = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,9:15].T
     SI = SI.rename(index = dict(zip(SI.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
+    return NZ,SI
+
+#EA HRC downloader
+
+def get_EA_HRC(csv_file):
+    '''This function downloads the EA hydro risk curves.  Although this 
+       data comes from the SO, these differ in that ex-post (historic) 
+       changes to the HRC data are, at least, attempted to be preserved.
+       This is not the case for the SO data which is very much an ex-
+       anti, forward looking curve that over-writes historic changes (as
+       observed at the time).  
+       
+       This returns pandas dataframe objects for the SI and NZ.
+    
+       Note: This worked on 01/08/2013, no guarantees it will work into 
+             the future as dependent on the csv file format'''
+    NZ = pd.read_csv(csv_file,index_col=0,parse_dates=True,dayfirst=True,usecols=[0,1,2,3,4,5,6]).drop_duplicates()
+    SI = pd.read_csv(csv_file,index_col=0,parse_dates=True,dayfirst=True,usecols=[0,8,9,10,11,12,13])
+    SI = SI.reset_index().rename(columns=dict(zip(SI.reset_index().columns,['South Island','1%','2%','4%','6%','8%','10%']))).set_index('South Island').drop_duplicates()
     return NZ,SI
 
 
