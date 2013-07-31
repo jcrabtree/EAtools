@@ -247,11 +247,24 @@ def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
         t['Date'] = t['Date'].map(lambda x: parsedate(x))
     
     t = t.set_index(['Date','TP','node']).demand
-    t = t.unstack(level=2)
-    
-        
-    
+    t = t.unstack(level=2)    
     return t
+ 
+ #Functions for reading Hydrology data input - currently outside of the DW...
+ 
+ def read_comit_data(directory,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
+    '''This function reads and processes the Comit Hydro data from the linux box Walter.  
+       It only work if the Comit hydro data is avaliable in the directory supplied.
+       Note: it is planned that this data will be included in the Data Warehouse, in which case this function will
+       change to an SQL query.  For now this is how we do it.'''
+    os.chdir(directory)
+    inflows = pd.read_pickle('inflows.pickle')
+    storage = pd.read_pickle('storage.pickle')
+    inflows=inflows[inflows.index.map(lambda x: x.year)>=since] #take data since 1932
+    storage=storage[storage.index.map(lambda x: x.year)>=since]
+    inflows=inflows*24.0/1000.0 #convert to GWh
+    return inflows.ix[:,catchments],storage.ix[:,catchments]
+
 
 
 
