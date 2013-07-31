@@ -122,6 +122,17 @@ def panel_beater(storage,inflow,days,percentile_width=80):
     inflows = calc_mean_percentile(inflow,percentile_width)
     return pd.Panel({'Storage':storage.tail(days),'Inflows':inflows.tail(days)})
 
+#System Operator HRC downloader
+
+def get_SO_HRC(link):
+    '''This function downloads the SO hydro rick curves, returning pandas dataframe objects for the SI and NZ.
+    Note: This worked on 01/08/2013, no guarantees it will work into the future as dependend on xlsx file format'''
+    HRC_SO = pd.ExcelFile(urllib2.urlopen(link))
+    NZ = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,:6].T
+    NZ = NZ.rename(index = dict(zip(NZ.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
+    SI = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,9:15].T
+    SI = SI.rename(index = dict(zip(SI.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
+    return NZ,SI
 
 #Hydrology plot functions
 
