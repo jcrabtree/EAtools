@@ -149,8 +149,8 @@ def get_qwop(connection,dateBeg,dateEnd,company):
 
 
 def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
-	'''This function queries the DW for prices at all nodes in the 
-	   nodelist, or, if nodelist is empty, all nodes are returned'''
+    '''This function queries the DW for prices at all nodes in the 
+       nodelist, or, if nodelist is empty, all nodes are returned'''
     if nodelist:
         t = {}
         for node in nodelist:
@@ -204,10 +204,10 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=Fals
         t = t.unstack(level=2)
     
     return t
-
+	
 def get_prices2(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
-	'''This function queries the DW for prices at all nodes in the 
-	   nodelist, or, if nodelist is empty, all nodes are returned'''
+    '''This function queries the DW for prices at all nodes in the 
+       nodelist, or, if nodelist is empty, all nodes are returned'''
     if nodelist:
         t = {}
         for node in nodelist:
@@ -265,7 +265,7 @@ def get_prices2(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=Fal
 
 
 
-
+ get
 
 
 

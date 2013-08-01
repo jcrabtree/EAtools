@@ -74,7 +74,7 @@ def timeseries_convert(df,keep_tp_index=True):
     return df
 
 #Functions for munging up Comit Hydro data
-
+    
 def calc_mean_percentile(data,percentile_width,future=False):
     '''This function, given a historic timeseries, returns a time series dataframe that includes the historic 
        daily mean and percentiles of the given data.
