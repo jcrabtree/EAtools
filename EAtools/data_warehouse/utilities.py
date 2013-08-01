@@ -50,7 +50,7 @@ def timeseries_convert(df,keep_tp_index=True):
         ds.ix[ds.index.map(lambda x: x[0] in tp46),'dls'] = 46 #set value to 46 on short days
         ds.ix[ds.index.map(lambda x: x[0] in tp48),'dls'] = 48 #to 48 on normal days, and,
         ds.ix[ds.index.map(lambda x: x[0] in tp50),'dls'] = 50 #to 50 on long days
-	else:
+    else:
         ds.ix[ds.index.map(lambda x: x[0].date() in tp46),'dls'] = 46 #set value to 46 on short days
         ds.ix[ds.index.map(lambda x: x[0].date() in tp48),'dls'] = 48 #to 48 on normal days, and,
         ds.ix[ds.index.map(lambda x: x[0].date() in tp50),'dls'] = 50 #to 50 on long days
