@@ -7,11 +7,13 @@ import os,sys
 import urllib2
 import xlrd
 
+def parsedate(x):
+    return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+
+
 def get_ramu_summary(connection,dateBeg,dateEnd):
     '''island energy, reserve and hvdc summary'''
-    def parsedate(x):
-        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
-
+ 
     q="""Select
          atomic.Atm_Spdsolved_Islands.DIM_DTTM_ID,
          atomic.Atm_Spdsolved_Islands.DATA_DATE As 'Date',
@@ -113,8 +115,6 @@ def get_rm_demand(connection,dateBeg,dateEnd,company):
 
 def get_qwop(connection,dateBeg,dateEnd,company):
     '''Quantity weighted offer price query, from Ramu'''
-    def parsedate(x):
-        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
     q = """Select
          com.Fp_Offers.DTTM_ID,
          com.Fp_Offers.Trading_DATE as 'Date',
@@ -149,8 +149,8 @@ def get_qwop(connection,dateBeg,dateEnd,company):
 
 
 def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
-    def parsedate(x):
-        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+	'''This function queries the DW for prices at all nodes in the 
+	   nodelist, or, if nodelist is empty, all nodes are returned'''
     if nodelist:
         t = {}
         for node in nodelist:
@@ -205,11 +205,74 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=Fals
     
     return t
 
+def get_prices2(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
+	'''This function queries the DW for prices at all nodes in the 
+	   nodelist, or, if nodelist is empty, all nodes are returned'''
+    if nodelist:
+        t = {}
+        for node in nodelist:
+            print "getting %s from DW" % node
+            q=r"""Select 
+                  atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',
+                  atomic.Atm_Spdsolved_Pnodes.period as 'TP',
+                  atomic.Atm_Spdsolved_Pnodes.DATA_DTTM as 'DateTime',
+                  atomic.Atm_Spdsolved_Pnodes.price As '%s'
+              From
+                  atomic.Atm_Spdsolved_Pnodes Inner Join
+                  atomic.DIM_DATE_TIME On atomic.Atm_Spdsolved_Pnodes.DIM_DTTM_ID =
+                  atomic.DIM_DATE_TIME.DIM_DATE_TIME_ID
+              Where
+                  atomic.DIM_DATE_TIME.DIM_CIVIL_DATE Between '%s' And '%s' And
+                  atomic.Atm_Spdsolved_Pnodes.period Between '%s' And '%s' And
+                  atomic.Atm_Spdsolved_Pnodes.pnode = '%s'
+              Order by
+                  [Date],[TP]  Asc""" % (node,dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd,node)
+    
+            #Read the query 
+            s = sql.read_frame(q,connection,coerce_float=True) 
+            t['Date'] = s['Date']
+            t['TP']= s['TP']       
+            t[node]=s[node]
+
+        t=DataFrame(t)
+        if windows ==False:
+            t['Date'] = t['Date'].map(lambda x: parsedate(x))
+        t = t.set_index(['Date','TP'])
+
+    else:
+        q=r"""Select 
+              atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',
+              atomic.Atm_Spdsolved_Pnodes.period as 'TP',
+              atomic.Atm_Spdsolved_Pnodes.pnode as 'node',
+              atomic.Atm_Spdsolved_Pnodes.price As 'price'
+          From
+              atomic.Atm_Spdsolved_Pnodes Inner Join
+              atomic.DIM_DATE_TIME On atomic.Atm_Spdsolved_Pnodes.DIM_DTTM_ID =
+              atomic.DIM_DATE_TIME.DIM_DATE_TIME_ID
+          Where
+              atomic.DIM_DATE_TIME.DIM_CIVIL_DATE Between '%s' And '%s' And
+              atomic.Atm_Spdsolved_Pnodes.period Between '%s' And '%s' """ % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd) 
+        t = sql.read_frame(q,connection,coerce_float=True) 
+        if windows == False:
+            t['Date'] = t['Date'].map(lambda x: parsedate(x))
+        t = t.set_index(['Date','TP','node']).price
+        t = t.unstack(level=2)
+    
+    return t
+
+
+
+
+
+
+
+
+
+
+
+
 def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
-     
-    def parsedate(x):
-        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
-        
+            
     q=r"""Select 
         atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',
         atomic.Atm_Spdsolved_Pnodes.period as 'TP',
