@@ -10,7 +10,7 @@ import xlrd
 def get_ramu_summary(connection,dateBeg,dateEnd):
     '''island energy, reserve and hvdc summary'''
     def parsedate(x):
-        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
 
     q="""Select
          atomic.Atm_Spdsolved_Islands.DIM_DTTM_ID,
@@ -114,7 +114,7 @@ def get_rm_demand(connection,dateBeg,dateEnd,company):
 def get_qwop(connection,dateBeg,dateEnd,company):
     '''Quantity weighted offer price query, from Ramu'''
     def parsedate(x):
-        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
     q = """Select
          com.Fp_Offers.DTTM_ID,
          com.Fp_Offers.Trading_DATE as 'Date',
@@ -150,7 +150,7 @@ def get_qwop(connection,dateBeg,dateEnd,company):
 
 def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
     def parsedate(x):
-        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
     if nodelist:
         t = {}
         for node in nodelist:
@@ -208,8 +208,7 @@ def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=Fals
 def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
      
     def parsedate(x):
-        print x
-        return datetime.datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+        return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
         
     q=r"""Select 
         atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',

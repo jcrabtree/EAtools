@@ -45,9 +45,15 @@ def timeseries_convert(df,keep_tp_index=True):
     tp50 = dc[dc==50].index #long days
     tp48 = dc[dc==48].index #normal days
     ds = pd.DataFrame(columns=['dls'],index=df.index) #Create temp dataframe for mapping
-    ds.ix[ds.index.map(lambda x: x[0].date() in tp46),'dls'] = 46 #set value to 46 on short days
-    ds.ix[ds.index.map(lambda x: x[0].date() in tp48),'dls'] = 48 #to 48 on normal days, and,
-    ds.ix[ds.index.map(lambda x: x[0].date() in tp50),'dls'] = 50 #to 50 on long days
+    #need to test that the index is a datetime type
+    if type(ds.index[0][0])==datetime.date:  #this appears to have some dependence on the windows/linux systems...
+        ds.ix[ds.index.map(lambda x: x[0] in tp46),'dls'] = 46 #set value to 46 on short days
+        ds.ix[ds.index.map(lambda x: x[0] in tp48),'dls'] = 48 #to 48 on normal days, and,
+        ds.ix[ds.index.map(lambda x: x[0] in tp50),'dls'] = 50 #to 50 on long days
+	else:
+        ds.ix[ds.index.map(lambda x: x[0].date() in tp46),'dls'] = 46 #set value to 46 on short days
+        ds.ix[ds.index.map(lambda x: x[0].date() in tp48),'dls'] = 48 #to 48 on normal days, and,
+        ds.ix[ds.index.map(lambda x: x[0].date() in tp50),'dls'] = 50 #to 50 on long days
     ds['date']=ds.index.map(lambda x: x[0]) #create date and trading period columns
     ds['tp']=ds.index.map(lambda x: x[1])
     tp46map=dict(zip(range(1,47),range(1,5)+range(7,49))) #short day mapping
