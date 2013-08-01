@@ -260,17 +260,6 @@ def get_prices2(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=Fal
     
     return t
 
-
-
-
-
-
- get
-
-
-
-
-
 def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
             
     q=r"""Select 
