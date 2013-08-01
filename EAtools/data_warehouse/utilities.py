@@ -47,6 +47,7 @@ def timeseries_convert(df,keep_tp_index=True):
     ds = pd.DataFrame(columns=['dls'],index=df.index) #Create temp dataframe for mapping
     #need to test that the index is a datetime type
     print type(df.index[0][0])
+    print type(df.index[0][0])==datetime.date
     if type(df.index[0][0])==datetime.date:  #this appears to have some dependence on the windows/linux systems...
         ds.ix[ds.index.map(lambda x: x[0] in tp46),'dls'] = 46 #set value to 46 on short days
         ds.ix[ds.index.map(lambda x: x[0] in tp48),'dls'] = 48 #to 48 on normal days, and,
