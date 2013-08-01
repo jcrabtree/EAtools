@@ -26,7 +26,10 @@ def daily_count(df): #count trading periods in each day
     
 def time_converter(x):  #Work out the time from the HH number
     return (datetime.combine(date.today(),time(int(np.floor(((int(x)-1)/2.0))),int(((x-1)/2.0 % 1)*60+14.999),59)) + timedelta(seconds=1)).time()
-    
+
+def date_converter2(x):
+    return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2])) #Work out the time from the HH number
+
 def combine_date_time(df): #combine date and time columns, used with .apply
     return datetime.combine(df['date'],df['time'])
 
