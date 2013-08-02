@@ -30,6 +30,9 @@ def time_converter(x):  #Work out the time from the HH number
 def date_converter2(x):
     return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2])) #Work out the time from the HH number
 
+def date_converter(x):
+    return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2])).date() #but only the date...
+
 def combine_date_time(df): #combine date and time columns, used with .apply
     return datetime.combine(df['date'],df['time'])
 

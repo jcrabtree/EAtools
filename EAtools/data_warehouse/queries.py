@@ -6,10 +6,144 @@ import pyodbc
 import os,sys
 import urllib2
 import xlrd
+from EAtools.data_warehouse.utilities import date_converter
 
-def parsedate(x):
-    return datetime(int(x.split('-')[0]),int(x.split('-')[1]),int(x.split('-')[2]))
+########################################################################
+#Data Warehouse connection setup
+########################################################################
 
+def DW_connect(linux=False,DSN='DWMarketData'):
+    '''Connect to the EA Datawarehouse from window and linux boxes:
+       Note: DSN can also be: NZxDaily_LIVE, or HH'''
+    if linux == True:
+        con = pyodbc.connect('DSN=' + DSN + ';UID=linux_user;PWD=linux')
+    else:
+        con = pyodbc.connect('DRIVER={SQL Server Native Client 10.0};SERVER=eadwprod\live;DATABASE=' + DSN + ';UID=linux_user;PWD=linux')
+    
+    return con
+
+########################################################################
+#Final Pricing SQL queries
+########################################################################
+
+#First we define some simple deocator functions.  Note this is my first 
+#play with decorators (2/8/2013)
+def FP_price(fn):
+    def replacer(*args, **kwargs):
+        return fn(*args, **kwargs) \
+                   .replace('column_name','FP_energy_price') \
+                   .replace('data_name','price') \
+                   .replace('table_name','FP_price')
+    return replacer
+
+def FP_demand(fn):
+    def replacer(*args, **kwargs):
+        return fn(*args, **kwargs) \
+                   .replace('column_name','FP_demand') \
+                   .replace('data_name','demand') \
+                   .replace('table_name','FP_demand')
+    return replacer
+
+#This returns a default query string that we will attempt to decorate 
+#depending if we want price or demand
+def FP_query(dateBeg,dateEnd,tpBeg=1,tpEnd=50,nodelist=None):
+    q1 = """SELECT dw.Trading_Date as 'Date',
+                     dw.Trading_period as 'TP',
+                     dw.PNode,
+                     dw.column_name as 'data_name'
+          FROM
+                 com.table_name dw
+          WHERE
+                 dw.Trading_Date between '%s' and '%s' 
+            and
+                 dw.Trading_period between '%s' and '%s' """ 
+    if nodelist:
+        q2=""" and dw.PNode in %s ORDER BY [Trading_Date],[Trading_period] Asc""" 
+        if len(nodelist) > 1:
+            node_str = str(tuple(nodelist))
+        else:
+            node_str = "('" + nodelist[0] + "')"
+        q=(q1+q2) % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd,node_str)
+        q = q.replace('\n\n','\n')
+    else:
+        q2 = """ and
+                     LEN(dw.PNode) > 3 And
+                     LEN(dw.PNode) < 8   
+              ORDER BY [Date],[TP]  Asc""" 
+        q = (q1+q2) % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd)
+        q = q.replace('\n\n','\n')
+    return q
+
+#Hook into the DW with the query string q
+def FP_getter(connection,q): 
+    from time import clock
+    tic = clock()
+    s = sql.read_frame(q,connection,coerce_float=True) 
+    if type(s.Date[0]) is unicode: #Need to test this as either different versions or operating systems appear to have an effect on the date parsing...
+        s['Date'] = s['Date'].map(lambda x: date_converter(x))
+    s = s.set_index(['Date','TP','PNode']).unstack(level=2)
+    toc = clock()
+    print "Took %s seconds to retrieve and convert data from warehouse!" % str(toc-tic)
+    return s
+
+#Ok, now we decorate our default FP_query function to create two new functions: 
+query_prices = FP_price(FP_query)  #for prices
+query_demand = FP_demand(FP_query) #for demand...
+
+
+########################################################################
+#Comit hydro data - currently not in the DW!
+########################################################################
+
+def get_comit_data(inflow_pickle,storage_pickle,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
+    '''This function reads and processes Comit Hydro data.
+      
+       Note: it is planned that this data will in the future be included 
+       in the Data Warehouse, in which case this function will change to
+       an SQL query.'''
+    inflows = pd.read_pickle(inflow_pickle)
+    storage = pd.read_pickle(storage_pickle)
+    inflows=inflows[inflows.index.map(lambda x: x.year)>=since] #take data since 1932
+    storage=storage[storage.index.map(lambda x: x.year)>=since]
+    inflows=inflows*24.0/1000.0 #convert to GWh
+    return inflows.ix[:,catchments],storage.ix[:,catchments]
+
+########################################################################
+#System Operator HRC downloader - currently not in the DW!
+########################################################################
+
+def get_SO_HRC(link):
+    '''This function downloads the SO hydro risk curves, returning 
+       pandas dataframe objects for the SI and NZ.
+       Note: This worked on 01/08/2013, no guarantees it will work into 
+             the future as dependent on xlsx file format'''
+    HRC_SO = pd.ExcelFile(urllib2.urlopen(link))
+    NZ = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,:6].T
+    NZ = NZ.rename(index = dict(zip(NZ.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
+    SI = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,9:15].T
+    SI = SI.rename(index = dict(zip(SI.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
+    return NZ,SI
+
+########################################################################
+#EA HRC getter - currently not in the DW!
+########################################################################
+
+def get_EA_HRC(csv_file):
+    '''This function downloads the EA hydro risk curves.  Although this 
+       data comes from the SO, these differ in that ex-post (historic) 
+       changes to the HRC data are, at least, attempted to be preserved.
+       This is not the case for the SO data which is very much an ex-
+       anti, forward looking curve that over-writes historic changes (as
+       observed at the time).  
+       
+       This returns pandas dataframe objects for the SI and NZ.
+    
+       Note: This worked on 01/08/2013, no guarantees it will work into 
+             the future as dependent on the csv file format'''
+    NZ = pd.read_csv(csv_file,index_col=0,parse_dates=True,dayfirst=True,usecols=[0,1,2,3,4,5,6]).drop_duplicates()
+    SI = pd.read_csv(csv_file,index_col=0,parse_dates=True,dayfirst=True,usecols=[0,8,9,10,11,12,13])
+    SI = SI.reset_index().rename(columns=dict(zip(SI.reset_index().columns,['South Island','1%','2%','4%','6%','8%','10%']))).set_index('South Island').drop_duplicates()
+    return NZ,SI
 
 def get_ramu_summary(connection,dateBeg,dateEnd):
     '''island energy, reserve and hvdc summary'''
@@ -43,7 +177,7 @@ def get_ramu_summary(connection,dateBeg,dateEnd):
          atomic.DIM_DATE_TIME.DIM_CIVIL_DATE >= '%s' And
          atomic.DIM_DATE_TIME.DIM_CIVIL_DATE <= '%s' """ % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"))
     t = sql.read_frame(q,connection,coerce_float=True) 
-    t['Date'] = t['Date'].map(lambda x: parsedate(x))
+    t['Date'] = t['Date'].map(lambda x: date_converter(x))
     t = t.set_index(['Date','TP','island'])
     del t['DIM_DTTM_ID']
     return t
@@ -71,9 +205,6 @@ def get_rm_generation(connection,dateBeg,dateEnd,company):
        com.MAP_Participant_names.Parent_Company_ID,
        com.RM_Generation_by_trader.POC""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),company)
     t = sql.read_frame(q,connection,coerce_float=True) 
-    #t['Date'] = t['Date'].map(lambda x: parsedate(x))
-    #t = t.set_index(['Date','TP','node']).price
-    #t = t.unstack(level=2)
     return t
 
 def get_rm_demand(connection,dateBeg,dateEnd,company):
@@ -103,9 +234,6 @@ def get_rm_demand(connection,dateBeg,dateEnd,company):
         com.RM_Demand_by_trader.DTTM_ID,
         com.MAP_NSP_POC_to_region.ISLAND""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),company)
     t = sql.read_frame(q,connection,coerce_float=True) 
-    #t['Date'] = t['Date'].map(lambda x: parsedate(x))
-    #t = t.set_index(['Date','TP','node']).price
-    #t = t.unstack(level=2)
     return t
 
 
@@ -139,144 +267,9 @@ def get_qwop(connection,dateBeg,dateEnd,company):
       order by
          com.Fp_Offers.DTTM_ID""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),company)
     t = sql.read_frame(q,connection,coerce_float=True) 
-    t['Date'] = t['Date'].map(lambda x: parsedate(x))
+    t['Date'] = t['Date'].map(lambda x: date_converter(x))
     t = t.set_index(['Date','TP']).QWOP
-    #t = t.unstack(level=2)
     return t
-
-def get_prices(connection,dateBeg,dateEnd,tpBeg,tpEnd,nodelist=None,windows=False):
-    '''This function queries the DW for prices at all nodes in the 
-       nodelist, or, if nodelist is empty, all nodes are returned'''
-
-    if nodelist:
-        t = {}
-        for node in nodelist:
-            print "getting %s from DW" % node
-            q=r"""SELECT pr.Trading_Date as 'Date',
-                         pr.Trading_period as 'TP',
-                         pr.PNode as '%s',
-                         pr.FP_energy_price as 'price'
-                  FROM
-                         com.FP_Price pr
-                  WHERE
-                         pr.Trading_Date between '%s' and '%s' 
-                    and
-                         pr.Trading_period between '%s' and '%s' 
-                    and
-                         pr.PNode = '%s'
-                  ORDER BY [Date],[TP]  Asc""" % (node,dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd,node)
-            q=q.replace('\n\n','\n')
-            #Read the query 
-            s = sql.read_frame(q,connection,coerce_float=True) 
-            t['Date'] = s['Date']
-            t['TP']= s['TP']       
-            t[node]=s[node]
-
-        t=pd.DataFrame(t)
-        if windows ==False:
-            t['Date'] = t['Date'].map(lambda x: parsedate(x))
-        t = t.set_index(['Date','TP'])
-
-    else:
-        q=r"""SELECT pr.Trading_Date as 'Date',
-                     pr.Trading_period as 'TP',
-                     pr.PNode as 'node',
-                     pr.FP_energy_price as 'price'
-              FROM
-                     com.FP_Price pr
-              WHERE
-                     pr.Trading_Date between '%s' and '%s' 
-                and
-                     pr.Trading_period between '%s' and '%s' 
-                and
-                     LEN(node) > 3 And
-                     LEN(node) < 8   
-
-              ORDER BY [Date],[TP]  Asc""" % (dateBeg.strftime("%Y-%m-%d"),dateEnd.strftime("%Y-%m-%d"),tpBeg,tpEnd)
-        q=q.replace('\n\n','\n')
-        t = sql.read_frame(q,connection,coerce_float=True) 
-        if windows == False:
-            t['Date'] = t['Date'].map(lambda x: parsedate(x))
-        t = t.set_index(['Date','TP','node']).price
-        t = t.unstack(level=2)
-    
-    return t
-
-def get_load(connection,dateBeg,dateEnd,tpBeg,tpEnd,windows=False):
-            
-    q=r"""Select 
-        atomic.DIM_DATE_TIME.DIM_CIVIL_DATE as 'Date',
-        atomic.Atm_Spdsolved_Pnodes.period as 'TP',
-        atomic.Atm_Spdsolved_Pnodes.pnode as 'node',
-        atomic.Atm_Spdsolved_Pnodes.load As 'demand'
-    From
-        atomic.Atm_Spdsolved_Pnodes Inner Join
-        atomic.DIM_DATE_TIME On atomic.Atm_Spdsolved_Pnodes.DIM_DTTM_ID =
-        atomic.DIM_DATE_TIME.DIM_DATE_TIME_ID
-    Where
-        atomic.DIM_DATE_TIME.DIM_CIVIL_DATE Between '%s' And '%s' And
-        atomic.Atm_Spdsolved_Pnodes.period Between '%s' And '%s' And
-        LEN(atomic.Atm_Spdsolved_Pnodes.pnode) > 3 And
-        LEN(atomic.Atm_Spdsolved_Pnodes.pnode) < 8   
-     """ % (dateBeg,dateEnd,tpBeg,tpEnd)
-    
-    t = sql.read_frame(q,connection,coerce_float=True) 
-    
-    if not windows:
-        t['Date'] = t['Date'].map(lambda x: parsedate(x))
-    
-    t = t.set_index(['Date','TP','node']).demand
-    t = t.unstack(level=2)    
-    return t
- 
- #Functions for reading Hydrology data input - currently outside of the DW...
- 
-def get_comit_data(inflow_pickle,storage_pickle,since=1932,catchments = ['Taupo','Tekapo','Pukaki','Hawea','TeAnau','Manapouri']):
-    '''This function reads and processes Comit Hydro data.
-      
-       Note: it is planned that this data will in the future be included 
-       in the Data Warehouse, in which case this function will change to
-       an SQL query.'''
-    inflows = pd.read_pickle(inflow_pickle)
-    storage = pd.read_pickle(storage_pickle)
-    inflows=inflows[inflows.index.map(lambda x: x.year)>=since] #take data since 1932
-    storage=storage[storage.index.map(lambda x: x.year)>=since]
-    inflows=inflows*24.0/1000.0 #convert to GWh
-    return inflows.ix[:,catchments],storage.ix[:,catchments]
-
-
-#System Operator HRC downloader
-
-def get_SO_HRC(link):
-    '''This function downloads the SO hydro risk curves, returning 
-       pandas dataframe objects for the SI and NZ.
-       Note: This worked on 01/08/2013, no guarantees it will work into 
-             the future as dependent on xlsx file format'''
-    HRC_SO = pd.ExcelFile(urllib2.urlopen(link))
-    NZ = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,:6].T
-    NZ = NZ.rename(index = dict(zip(NZ.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
-    SI = HRC_SO.parse(HRC_SO.sheet_names[0], header=3).T.ix[:,9:15].T
-    SI = SI.rename(index = dict(zip(SI.index,['1%','2%','4%','6%','8%','10%']))).T.applymap(lambda x: float(x))
-    return NZ,SI
-
-#EA HRC downloader
-
-def get_EA_HRC(csv_file):
-    '''This function downloads the EA hydro risk curves.  Although this 
-       data comes from the SO, these differ in that ex-post (historic) 
-       changes to the HRC data are, at least, attempted to be preserved.
-       This is not the case for the SO data which is very much an ex-
-       anti, forward looking curve that over-writes historic changes (as
-       observed at the time).  
-       
-       This returns pandas dataframe objects for the SI and NZ.
-    
-       Note: This worked on 01/08/2013, no guarantees it will work into 
-             the future as dependent on the csv file format'''
-    NZ = pd.read_csv(csv_file,index_col=0,parse_dates=True,dayfirst=True,usecols=[0,1,2,3,4,5,6]).drop_duplicates()
-    SI = pd.read_csv(csv_file,index_col=0,parse_dates=True,dayfirst=True,usecols=[0,8,9,10,11,12,13])
-    SI = SI.reset_index().rename(columns=dict(zip(SI.reset_index().columns,['South Island','1%','2%','4%','6%','8%','10%']))).set_index('South Island').drop_duplicates()
-    return NZ,SI
 
 
 
