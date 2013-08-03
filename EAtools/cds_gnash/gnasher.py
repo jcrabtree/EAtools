@@ -1,7 +1,7 @@
 #This file contains functions that interact with Gnash.exe and also additional functions I find myself using repetitively
 #D Hume, 3/10/2012
 #
-#Dependencies, pandas,pbs,datetime.date,datetime.datetime,datetime.time,datetime.timedelta
+#Dependencies, pandas,sh,datetime.date,datetime.datetime,datetime.time,datetime.timedelta
 
 import pandas as pd
 import numpy as np
@@ -11,9 +11,9 @@ import pyodbc
 import os,sys
 
 if sys.platform.startswith("linux"):
-   from pbs import Command
+   from sh import Command
 
-def Gnasher(input_string,output_file): 
+def Gnasher(input_string,output_file=None): 
     '''Run Gnash from within python session.
 	   Note: use tail -f on the Gnash.Trail file to keep tabs on Gnash operation'''
     py_gnash = Command("./Gnash.exe")  #Ok, py_gnash is a callable object in python that will run Gnash.exe
@@ -21,14 +21,21 @@ def Gnasher(input_string,output_file):
 
 def GnashChew(datafile): 
 
-   Gin=pd.read_csv(datafile,header = 1,skiprows = [2],na_values = ['?','       ? ','       ?','          ? ','          ?','        ?']) #First read to obtain dump file
+   def na_convert(x):
+       if '?' in str(x):
+           return np.nan
+       else:
+           return x
+           
+   Gin=pd.read_csv(datafile,header = 1,skiprows = [2]) #First read to obtain dump file
    names = Gin.columns #get names used by Gnash
    newnames=[]
    for name in names: 
       name = name.replace('.','_') #replace . in name with _ (not required but makes working with the DataFrame easier, i.e., Gin.Aux_Date can be used instead of Gin['Aux.Date'] to get the data column.
       newnames.append(name)        #create a new names list
-   Gin=pd.read_csv(datafile,header = 1,skiprows = [2],na_values = ['?','       ? ','       ?','          ? ','          ?','        ?'],names=newnames, converters={'Aux_DayClock':ordinal_converter},parse_dates=True) #reread in datafile with new names (this is a silly way to do this should use rename with a dictionary object instead!)
+   Gin=pd.read_csv(datafile,header = 1,skiprows = [2],names=newnames, converters={'Aux_DayClock':ordinal_converter},parse_dates=True) #reread in datafile with new names (this is a silly way to do this should use rename with a dictionary object instead!)
    Gin = Gin.set_index('Aux_DayClock')
+   Gin = Gin.applymap(lambda x: na_convert(x))   #convert ? to nan, is this the best way, better than before...
    return Gin
 
 def ordinal_converter(x):
