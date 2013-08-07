@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """
 The is cloned from NigelClelands version
 From https://github.com/NigelCleland/nzem.git
@@ -46,7 +45,6 @@ import pandas as pd
 import numpy as np
 from datetime import date, datetime, time, timedelta
 import pandas.io.sql as sql
-#import pyodbc
 import os
 import sys
 import subprocess
@@ -55,7 +53,6 @@ import time
 
 if sys.platform.startswith("linux"):
    from pbs import Command
-   #from sh import Command
 
 # Change to the gnash directory, assumes it is extracted in the user home path.
 
@@ -75,7 +72,6 @@ class Gnasher(object):
         super(Gnasher, self).__init__() #inherit __init__ from object 
 
     def query_gnash(self, input_string):
-        
         self._run_query(input_string) 
         self._scrub_output()
         self.query = self._convertgnashdump()
@@ -94,18 +90,9 @@ class Gnasher(object):
         except:
             print "Error, cannot run the query on Gnash"
 
-    
     def _convertgnashdump(self):
 
         na_conv = lambda x: np.nan if "?" in str(x) else x
-
-   from sh import Command
-
-def Gnasher(input_string,output_file=None): 
-    '''Run Gnash from within python session.
-	   Note: use tail -f on the Gnash.Trail file to keep tabs on Gnash operation'''
-    py_gnash = Command("./Gnash.exe")  #Ok, py_gnash is a callable object in python that will run Gnash.exe
-    py_gnash(_in=input_string,_out=output_file)  #_in is the STDIN and _out is the STDOUT! Cool eh?
 
         # First read to obtain dump file
         Gin=pd.read_csv(self.output, header=0)
@@ -132,23 +119,6 @@ def Gnasher(input_string,output_file=None):
                         ord_date.day,
                         int(np.floor((x % 1.0) * 24)),
                         int(np.round((x % 1.0 * 24 % 1.0 * 60), decimals=0)))
-
-   def na_convert(x):
-       if '?' in str(x):
-           return np.nan
-       else:
-           return x
-           
-   Gin=pd.read_csv(datafile,header = 1,skiprows = [2]) #First read to obtain dump file
-   names = Gin.columns #get names used by Gnash
-   newnames=[]
-   for name in names: 
-      name = name.replace('.','_') #replace . in name with _ (not required but makes working with the DataFrame easier, i.e., Gin.Aux_Date can be used instead of Gin['Aux.Date'] to get the data column.
-      newnames.append(name)        #create a new names list
-   Gin=pd.read_csv(datafile,header = 1,skiprows = [2],names=newnames, converters={'Aux_DayClock':ordinal_converter},parse_dates=True) #reread in datafile with new names (this is a silly way to do this should use rename with a dictionary object instead!)
-   Gin = Gin.set_index('Aux_DayClock')
-   Gin = Gin.applymap(lambda x: na_convert(x))   #convert ? to nan, is this the best way, better than before...
-   return Gin
 
     def _scrub_output(self):
         # Go line by line through the output until you find the header, hopefully we can get this working in future...
