@@ -5,6 +5,7 @@ import pandas.io.sql as sql
 import pyodbc
 import os,sys
 from EAtools.EAstyles.ea_styles import ea_p,ea_s
+
 import matplotlib.pyplot as plt
 
 month1 = {0:'Jan', 1:'Feb', 2:'Mar', 3:'Apr', 4:'May', 5:'Jun', 6:'Jul', 7:'Aug', 8:'Sep', 9:'Oct', 10:'Nov', 11:'Dec'}
@@ -138,10 +139,12 @@ def panel_beater(storage,inflow,days,percentile_width=80):
 
 #Hydrology plot functions
 
-def hydrology_plot(panel,title=None):
-    fig = plt.figure(1,figsize=[25,20])
-    ax1 = fig.add_subplot(211)
-    ax2 = fig.add_subplot(212, sharex=ax1)
+def hydrology_plot(panel,fig_file,title=None):
+    fig = plt.figure(1,figsize=[30,17])
+    ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
+    ax2 = plt.subplot2grid((3, 1), (2, 0))
+    #ax1 = fig.add_subplot(211)
+    #ax2 = fig.add_subplot(212, sharex=ax1)
 
     def hydro_plotter(df,ax,ylabel,title,colour1,colour2,colour3):
         x = df.index
@@ -170,9 +173,11 @@ def hydrology_plot(panel,title=None):
 
     hydro_plotter(panel['Storage'],ax1,'Storage (GWh)',title,ben_colour1,ben_colour2,ben_colour3)
     hydro_plotter(panel['Inflows'],ax2,'Inflows (GWh/day)',title,ota_colour1,ota_colour2,ota_colour3)
+    fig.tight_layout()
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
 #HRC plotter
-def hrc_plot(hrc,actual,means):
+def hrc_plot(hrc,actual,means,fig_file):
            
     fig = plt.figure(1,figsize=[25,20])
     ax1 = fig.add_subplot(111)
@@ -203,6 +208,278 @@ def hrc_plot(hrc,actual,means):
         ax.legend([act1,mean1,hrc1,hrc2,hrc4,hrc6,hrc8,hrc10], ["Actual storage","Mean storage","1% HRC","2% HRC","4% HRC","6% HRC","8% HRC","10% HRC"])
 
     hrc_plotter(hrc,actual,means,ax1,'GWh',colours)
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
+#useful ASX hedgefunctions
+
+
+def quart(year,q):
+    '''Return period index given year and quarter'''
+    return pd.Period(year = year, quarter = q,freq='Q-DEC')
+
+def current_quarter(date=None):
+    '''Given a datetime object, return the current quarter'''
+    if date:
+        return pd.period_range(date, date, freq='Q')[0]
+    else:
+        return pd.period_range(datetime.now().date(), datetime.now().date(), freq='Q')[0]
+
+def hours_in_quarter(q):
+    '''Calculate the number of hours in each quarter'''
+    hours = ((q.end_time-q.start_time).days + 1)*24
+    if q.quarter == 2: #if in second quater add an hour
+        hours = hours + 1
+    if q.quarter == 3: #if in third quarter subtract an hour
+        hours = hours - 1
+    return hours
+
+def back_a_year(Q,year=1):
+    now = datetime.now()
+    return Q.start_time>(datetime(now.year-year,now.month,now.day))
+
+def back_a_year_dt(dt,year=1):
+    now = datetime.now()
+    return dt>(datetime(now.year-year,now.month,now.day).date())
+
+def CQ_data(spread_panel,daily_panel,price_data,quarter,ota_ben):
+    '''Function to munge together useful daily time-series data for the current quarter;
+           1. daily bid/ask spread data
+           2. daily settlement data,
+           3. daily mean actual spot price data,
+           4. on above, calculate the implied average spot price for remainder of quarter.
+    NOTE: this only works for 2012Q4 onwards as no spread data before that!'''
+    CQ_beg = quarter.start_time - timedelta(days=7) #minus a week
+    CQ_end = quarter.end_time + timedelta(days=7)   #plus a week, we'll crop this out later.
+    CQ_days = round(hours_in_quarter(quarter)/24.0)
+
+    def dtconvert(x): #simple date converter 
+        date = x.split(' ')[0]
+        time = x.split(' ')[1]
+        return datetime(int(date.split('-')[0]),int(date.split('-')[1]),int(date.split('-')[2]),int(time[:2]),int(time[2:]))
+    def remove_rouge_datetime(df): #as said...
+        return df[df.index.map(lambda x: len(x)>14)]
+    
+    
+    spread_panel.axes[1] = pd.period_range(spread_panel.axes[1][0], spread_panel.axes[1][-1], freq='Q') #quarterize...
+    daily_panel.axes[1] = pd.period_range(daily_panel.axes[1][0], daily_panel.axes[1][-1], freq='Q')
+
+    ask =spread_panel.ix[:,:,'Ask'].T
+    bid =spread_panel.ix[:,:,'Bid'].T
+    
+    sett = daily_panel.ix[quarter.start_time.date():quarter.end_time.date(),quarter,'Sett'].T
+
+    bid = remove_rouge_datetime(bid[quarter]) #remove rouge timestamp - don't know how that got there...
+    ask = remove_rouge_datetime(ask[quarter])
+    bid.index = bid.index.map(lambda x: dtconvert(x)) #convert dates to datetime object
+    ask.index = ask.index.map(lambda x: dtconvert(x))
+    CQ = pd.DataFrame({'CQ_bid':bid,'CQ_ask':ask}).dropna() #whack into df
+    
+    CQ = CQ.groupby(lambda x: x.date()).agg([('min','min'),('max','max')]) 
+    CQ['CQ_Sett'] = sett 
+    CQ['CQ_mean'] = price_data
+    CQ['CQ_days'] = CQ.index.map(lambda x: x-quarter.start_time.date()+timedelta(days=1))
+    CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x.astype(object).days)
+    CQ['CQ_pc'] = CQ['CQ_days'].map(lambda x: x/CQ_days)
+    CQ['CQ_imp'] = (CQ['CQ_Sett']-CQ['CQ_pc']*CQ['CQ_mean'])/(1-CQ['CQ_pc'])
+    
+    
+    CQ = CQ.ix[CQ_beg.date():CQ_end.date(),]
+    
+    return CQ
+
+#ASX plot functions
+
+def forward_price_curve(df,color_map,fig_file):
+    '''Given an ASX future dataframe, take only future quarters, 
+       slice by the last date of each historic quarter, and plot'''
+
+    def future(Q):
+        return Q.end_time>datetime.now()
+    
+    def last_date_quarter(df):
+        q = df.T.groupby([lambda x: x.year,lambda x: (x.month-1)//3 + 1])
+        ldq = [q.groups[g][-1] for g in q.groups]
+        return ldq
+
+    forward = df.ix[:,:,'Sett']
+    forward = forward[forward.index.map(lambda x: future(x))].T.dropna(thresh=2).T
+    forward_ldq = forward.ix[:,last_date_quarter(forward)].T.sort().tail(8).T #last 2 years
+
+    #Define the color map
+    colors = np.r_[np.linspace(0.0, 1, num=len(forward_ldq.T.index)-1)] 
+    cmap = plt.get_cmap(color_map)
+    cmap_colors = cmap(colors)
+    
+    #plot
+    fig = plt.figure(1,figsize=[20,12])
+    ax = fig.add_subplot(111)
+    forward_ldq.ix[:,:-1].plot(drawstyle='steps-post',color=cmap_colors,ax=ax)
+    forward_ldq.ix[:,-1].plot(drawstyle='steps-post',linewidth=4,color=cmap_colors[-1],ax=ax)
+    ax.set_xlabel('')
+    ax.set_ylabel('$/MWh')
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
+
+
+def bid_ask_plot(df_ota,df_ben,fig_file):
+    '''Plot current quarter trends'''
+    fig = plt.figure(1,figsize=[25,16])
+    ax1 = fig.add_subplot(211)
+    ax2 = fig.add_subplot(212, sharex=ax1)
+
+    def bid_ask_sett_implied(df,ax,colour1,colour2,colour3,colour4):
+        x = df.index
+        bid_CQ_mins = df[('CQ_bid','min')].values
+        ask_CQ_maxs = df[('CQ_ask','max')].values
+        ax.fill_between(x,bid_CQ_mins,ask_CQ_maxs,color=colour2)
+        df['CQ_Sett'].plot(marker='.',ax=ax,linewidth = 0,color=colour1)
+        df['CQ_mean'].plot(ax=ax,color=colour3)
+        df['CQ_imp'].plot(ax=ax,color=colour4)
+        xlabels = ax.get_xticklabels() 
+        for label in xlabels: 
+            label.set_rotation(0) 
+        ax.set_xlabel('')
+        ax.set_ylabel('$/MWh')
+        ax.set_xlim([current_quarter().start_time,current_quarter().end_time])
+        ax.legend()
+        
+    ota_colour1 = ea_s['or1']
+    ota_colour2 = ea_s['or2']
+    ota_colour3 = ea_s['rd1']
+    ota_colour4 = ea_s['rd2']
+
+    ben_colour1 = ea_s['bl1']
+    ben_colour2 = ea_s['be1']
+    ben_colour3 = ea_s['pp1']
+    ben_colour4 = ea_s['pp2']
+
+    bid_ask_sett_implied(df_ota,ax1,ota_colour1,ota_colour2,ota_colour3,ota_colour4)
+    bid_ask_sett_implied(df_ben,ax2,ben_colour1,ben_colour2,ben_colour3,ben_colour4)
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
+
+def plot_monthly_volumes(ota,ben,fig_file):
+    '''Munge data from panel, and plot monthly trading volumes using a stacked bar plot'''
+    ben_volumes = ben.ix[:,:,'Volume'].T.groupby([lambda x: x.year,lambda x: x.month]).sum()
+    ota_volumes = ota.ix[:,:,'Volume'].T.groupby([lambda x: x.year,lambda x: x.month]).sum()
+    hours = pd.Series(ben.axes[1].map(lambda x: hours_in_quarter(x)),index = ben.axes[1])
+
+    func = lambda x: np.asarray(x) * np.asarray(hours) 
+    ben_volumes_GWh = (ben_volumes.T.apply(func)/1000.0).T #to GWh
+    ota_volumes_GWh = (ota_volumes.T.apply(func)/1000.0).T
+    volumes_GWh= pd.DataFrame({'Otahuhu (GWh)':ota_volumes_GWh.sum(axis=1),'Benmore (GWh)':ben_volumes_GWh.sum(axis=1)})
+    
+    fig = plt.figure(1,figsize=[20,10])
+    ax = fig.add_subplot(111)
+    volumes_GWh.plot(kind='bar',stacked=True,ax=ax,color=[ea_p['bl1'],ea_s['or1']])
+    ax.set_xlabel('')
+    ax.set_ylabel('GWh')
+    #rint ax.get_xticklabels()
+    newlabels=[]
+    for xtl in ax.get_xticklabels():
+        years = xtl.get_text()[1:-1].split(',')[0].replace(' ','')
+        month = month1[int(xtl.get_text()[1:-1].split(',')[1].replace(' ',''))-1]
+        newlabels.append(month + ', ' + years)
+    ax.set_xticklabels(newlabels,fontsize=14)    
+  
+        
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
+ 
+
+def plot_open_interest(ota,ben,fig_file):
+    '''Munge data from panel, and plot daily open interest'''
+    ben_opint = ben.ix[:,:,'Op Int']
+    ota_opint = ota.ix[:,:,'Op Int']
+    Q_hours = pd.Series({q: hours_in_quarter(q) for q in ben_opint.index}) #get hours in each quarter
+    ota_opint_GWh = ((ota_opint.T.fillna(0.0)).dot(Q_hours)/1000.0) #dot multiply MW by hours, divide by 1000, to get GWh
+    ben_opint_GWh = ((ben_opint.T.fillna(0.0)).dot(Q_hours)/1000.0)
+    opint_GWh = pd.DataFrame({'Otahuhu':ota_opint_GWh,'Benmore':ben_opint_GWh})
+    opint_GWh = opint_GWh[['Otahuhu','Benmore']].cumsum(axis=1) #swap columns and sum
+    opint_GWh = opint_GWh[opint_GWh.index.map(lambda x: back_a_year_dt(x,year=2))]
+
+    fig = plt.figure(1,figsize=[20,12])
+    ax = fig.add_subplot(111)
+    ax.fill_between(opint_GWh.index, 0, opint_GWh['Benmore'],facecolor=ea_p['bl1'],label='Benmore')
+    ax.fill_between(opint_GWh.index, 0, opint_GWh['Otahuhu'],facecolor=ea_s['or1'],label='Otahuhu')
+    ax.set_xlabel('')
+    ax.set_ylabel('GWh')
+    tot = opint_GWh.tail(1).Benmore.values[0]
+    otatot = opint_GWh.tail(1).Otahuhu.values[0]
+    bentot = tot-otatot
+
+    benleg = plt.Line2D((0,1),(0,0), color=ea_p['bl1'],linewidth=10)
+    otaleg = plt.Line2D((0,1),(0,0), color=ea_s['or1'],linewidth=10)
+    total_leg = plt.Line2D((0,0.1),(0,0), color='w',linewidth=10)
+
+    ax.legend([benleg,otaleg,total_leg], ["Benmore (%i GWh)" % bentot,"Otahuhu (%i GWh)" % otatot,"Total = %i GWh" % tot],loc=2)
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
+    
+def filter_last_year(df,CQ):
+    '''Filter out the current past annual settlement data ready for plotting with plot_last_year'''
+    forward_all = df.ix[:,:,'Sett']
+    forward_all = forward_all[forward_all.index.map(lambda x: back_a_year(x))].T
+    forward_year = forward_all.ix[forward_all.index.map(lambda x: x>(datetime.now().date()-timedelta(days=365))),:]
+    summer = forward_year.ix[:,forward_year.columns.map(lambda x: x.quarter in [1,4])]
+    winter = forward_year.ix[:,forward_year.columns.map(lambda x: x.quarter in [2,3])]
+    
+    summer_quart_past = summer.ix[:,summer.columns<CQ]
+    summer_quart_futr = summer.ix[:,summer.columns>CQ]
+    winter_quart_past = winter.ix[:,winter.columns<CQ]
+    winter_quart_futr = winter.ix[:,winter.columns>CQ]
+    
+    if CQ.quarter in [1,4]: #if CQ is summer
+        summer_quart_now = pd.DataFrame({CQ:summer[CQ]})
+    else:
+        summer_quart_now = None
+
+    if CQ.quarter in [2,3]: #if CQ is winter
+        winter_quart_now = pd.DataFrame({CQ:winter[CQ]})
+    else:
+        winter_quart_now = None
+    
+    summer = {'Past quarters':summer_quart_past,'Future quarters':summer_quart_futr,'Current quarter':summer_quart_now}
+    winter = {'Past quarters':winter_quart_past,'Future quarters':winter_quart_futr,'Current quarter':winter_quart_now}
+
+    return summer,winter
+
+def plot_last_year(df_dict_sum,df_dict_win,fig_file):
+    '''Plots the last years worth of ASX data'''
+
+    def subplotter(df_dict,ax,title):
+        for i,v in df_dict.iteritems():
+            if i == "Past quarters":
+                if len(v.columns) > 1:
+                    colors = np.r_[np.linspace(0.2, 1, num=len(v.columns))] 
+                    cmap = plt.get_cmap("Blues")
+                    blueshift = cmap(colors)       
+                else:
+                    blueshift = (0.81411766,0.88392158,0.94980392)
+                v.plot(ax=ax,color=blueshift)
+            if i == "Future quarters":
+                if len(v.columns) > 1:
+                    colors = np.r_[np.linspace(0.2, 1, num=len(v.columns))] 
+                    cmap = plt.get_cmap("Reds")
+                    redshift = cmap(colors)[::-1]  
+                else:
+                    redshift = (0.99137255,0.79137256,0.70823531)
+                v.plot(ax=ax,color=redshift)
+            if i == "Current quarter":
+                if v is not None:
+                    v.plot(ax=ax,color=(0.03137255,0.1882353,0.41960785))
+        
+        ax.set_ylabel('$/MWh') 
+        ax.set_title(title)
+        handles, labels = ax.get_legend_handles_labels()
+        import operator
+        hl = sorted(zip(handles, labels),key=operator.itemgetter(1))
+        handles2, labels2 = zip(*hl)
+        ax.legend(handles2, labels2,3)
+        
+    fig = plt.figure(1,figsize=[20,30])
+    ax1 = fig.add_subplot(211)
+    ax2 = fig.add_subplot(212)
+    subplotter(df_dict_sum,ax1,'Summer quarters')
+    subplotter(df_dict_win,ax2,'Winter quarters')
+    plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
+
+ 
 if __name__ == '__main__':
     pass

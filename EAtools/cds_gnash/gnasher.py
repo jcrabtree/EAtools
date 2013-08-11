@@ -101,10 +101,10 @@ class Gnasher(object):
         Gin.rename(columns=new_names, inplace=True)
         Gin = Gin.applymap(na_conv)
         # Drop na values
-        Gin = Gin.dropna()
+        #Gin = Gin.dropna()
         # Set a new index
         Gin["Aux_DayClock"] = Gin["Aux_DayClock"].apply(self._ordinal_converter)
-        Gin = Gin.set_index(['Aux_DayClock','Aux_HHn'])
+        Gin = Gin.set_index(['Aux_DayClock'])
         return Gin
 
     def _ordinal_converter(self, x):
@@ -137,7 +137,7 @@ class Gnasher(object):
         output.close()
 
         begin = string.find("Aux.HHn") - 1
-        end = string.find("Gnash:Bye") - 2
+        end = string.find("CPU time") - 1
         string = string[begin:end].replace('\xfa','.')
         self.output = StringIO(string)
 
