@@ -5,6 +5,9 @@ import pandas.io.sql as sql
 import pyodbc
 import os,sys
 from EAtools.EAstyles.ea_styles import ea_p,ea_s
+#from EAtools.data_warehouse.queries import FP_getter,query_demand
+from bs4 import BeautifulSoup
+import mechanize
 
 import matplotlib.pyplot as plt
 
@@ -139,8 +142,8 @@ def panel_beater(storage,inflow,days,percentile_width=80):
 
 #Hydrology plot functions
 
-def hydrology_plot(panel,fig_file,title=None):
-    fig = plt.figure(1,figsize=[30,17])
+def hydrology_plot(figno,panel,fig_file,title=None):
+    fig = plt.figure(figno,figsize=[30,17])
     ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
     ax2 = plt.subplot2grid((3, 1), (2, 0))
     #ax1 = fig.add_subplot(211)
@@ -177,9 +180,9 @@ def hydrology_plot(panel,fig_file,title=None):
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
 #HRC plotter
-def hrc_plot(hrc,actual,means,fig_file):
+def hrc_plot(figno,hrc,actual,means,fig_file):
            
-    fig = plt.figure(1,figsize=[25,20])
+    fig = plt.figure(figno,figsize=[25,20])
     ax1 = fig.add_subplot(111)
     colours = {'1%':ea_p['yl2'],'2%':ea_p['yl1'],'4%':ea_s['or2'],'6%':ea_s['or1'],'8%':ea_p['rd2'],'10%':ea_p['rd1']}
     
@@ -289,8 +292,8 @@ def CQ_data(spread_panel,daily_panel,price_data,quarter,ota_ben):
 
 #ASX plot functions
 
-def forward_price_curve(df,color_map,fig_file):
-    '''Given an ASX future dataframe, take only future quarters, 
+def forward_price_curve(figno,df,color_map,fig_file):
+    '''Given an ASX future Panel, take only future quarters, 
        slice by the last date of each historic quarter, and plot'''
 
     def future(Q):
@@ -304,14 +307,14 @@ def forward_price_curve(df,color_map,fig_file):
     forward = df.ix[:,:,'Sett']
     forward = forward[forward.index.map(lambda x: future(x))].T.dropna(thresh=2).T
     forward_ldq = forward.ix[:,last_date_quarter(forward)].T.sort().tail(8).T #last 2 years
-
+    forward_ldq = forward_ldq.append(forward_ldq.tail(1))
     #Define the color map
     colors = np.r_[np.linspace(0.0, 1, num=len(forward_ldq.T.index)-1)] 
     cmap = plt.get_cmap(color_map)
     cmap_colors = cmap(colors)
     
     #plot
-    fig = plt.figure(1,figsize=[20,12])
+    fig = plt.figure(figno,figsize=[20,12])
     ax = fig.add_subplot(111)
     forward_ldq.ix[:,:-1].plot(drawstyle='steps-post',color=cmap_colors,ax=ax)
     forward_ldq.ix[:,-1].plot(drawstyle='steps-post',linewidth=4,color=cmap_colors[-1],ax=ax)
@@ -320,9 +323,9 @@ def forward_price_curve(df,color_map,fig_file):
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
 
-def bid_ask_plot(df_ota,df_ben,fig_file):
+def bid_ask_plot(figno,df_ota,df_ben,fig_file):
     '''Plot current quarter trends'''
-    fig = plt.figure(1,figsize=[25,16])
+    fig = plt.figure(figno,figsize=[25,16])
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212, sharex=ax1)
 
@@ -356,7 +359,7 @@ def bid_ask_plot(df_ota,df_ben,fig_file):
     bid_ask_sett_implied(df_ben,ax2,ben_colour1,ben_colour2,ben_colour3,ben_colour4)
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
-def plot_monthly_volumes(ota,ben,fig_file):
+def plot_monthly_volumes(figno,ota,ben,fig_file):
     '''Munge data from panel, and plot monthly trading volumes using a stacked bar plot'''
     ben_volumes = ben.ix[:,:,'Volume'].T.groupby([lambda x: x.year,lambda x: x.month]).sum()
     ota_volumes = ota.ix[:,:,'Volume'].T.groupby([lambda x: x.year,lambda x: x.month]).sum()
@@ -367,7 +370,7 @@ def plot_monthly_volumes(ota,ben,fig_file):
     ota_volumes_GWh = (ota_volumes.T.apply(func)/1000.0).T
     volumes_GWh= pd.DataFrame({'Otahuhu (GWh)':ota_volumes_GWh.sum(axis=1),'Benmore (GWh)':ben_volumes_GWh.sum(axis=1)})
     
-    fig = plt.figure(1,figsize=[20,10])
+    fig = plt.figure(figno,figsize=[20,10])
     ax = fig.add_subplot(111)
     volumes_GWh.plot(kind='bar',stacked=True,ax=ax,color=[ea_p['bl1'],ea_s['or1']])
     ax.set_xlabel('')
@@ -384,7 +387,7 @@ def plot_monthly_volumes(ota,ben,fig_file):
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
  
 
-def plot_open_interest(ota,ben,fig_file):
+def plot_open_interest(figno,ota,ben,fig_file):
     '''Munge data from panel, and plot daily open interest'''
     ben_opint = ben.ix[:,:,'Op Int']
     ota_opint = ota.ix[:,:,'Op Int']
@@ -395,7 +398,7 @@ def plot_open_interest(ota,ben,fig_file):
     opint_GWh = opint_GWh[['Otahuhu','Benmore']].cumsum(axis=1) #swap columns and sum
     opint_GWh = opint_GWh[opint_GWh.index.map(lambda x: back_a_year_dt(x,year=2))]
 
-    fig = plt.figure(1,figsize=[20,12])
+    fig = plt.figure(figno,figsize=[20,12])
     ax = fig.add_subplot(111)
     ax.fill_between(opint_GWh.index, 0, opint_GWh['Benmore'],facecolor=ea_p['bl1'],label='Benmore')
     ax.fill_between(opint_GWh.index, 0, opint_GWh['Otahuhu'],facecolor=ea_s['or1'],label='Otahuhu')
@@ -440,7 +443,7 @@ def filter_last_year(df,CQ):
 
     return summer,winter
 
-def plot_last_year(df_dict_sum,df_dict_win,fig_file):
+def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
     '''Plots the last years worth of ASX data'''
 
     def subplotter(df_dict,ax,title):
@@ -473,13 +476,89 @@ def plot_last_year(df_dict_sum,df_dict_win,fig_file):
         handles2, labels2 = zip(*hl)
         ax.legend(handles2, labels2,3)
         
-    fig = plt.figure(1,figsize=[20,30])
+    fig = plt.figure(figno,figsize=[20,30])
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212)
     subplotter(df_dict_sum,ax1,'Summer quarters')
     subplotter(df_dict_win,ax2,'Winter quarters')
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
- 
+
+def plot_lwap(figno,lwaps,fig_name):
+
+    fig = plt.figure(figno,figsize=[20,13])
+    ax = fig.add_subplot(111)
+    lwaps.plot(color=[ea_p['gy1'],ea_p['br2'],ea_p['rd1']],ax=ax)
+    ax.set_ylabel('$/MWh') 
+    plt.savefig(fig_name,bbox_inches='tight',transparent=True,pad_inches=0)
+
+from bs4 import BeautifulSoup
+import mechanize
+class get_web_pics(object):
+    '''Quick scrapper to download most recent Meridian snow storage pic and NIWA's forecast pic'''
+    def __init__(self):
+        super(get_web_pics, self).__init__()
+        self.meridian_base_url = '''http://www.meridianenergy.co.nz/'''
+        self.meridian_link = self.meridian_base_url + "about-us/generating-energy/lake-levels-and-snow-storage/snow-storage/"
+        self.niwa_base_url = '''http://www.niwa.co.nz/'''
+        self.niwa_link = self.niwa_base_url + "climate/sco"
+
+    def get_snow_pic(self):
+        try:
+            self.br = mechanize.Browser()    # Browser
+            html =self.br.open(self.meridian_link)
+            soup = BeautifulSoup(html)
+            image_tags = soup.findAll('img')
+            #print image_tags
+
+            for image in image_tags[0:1]:
+                filename = image['src'].lstrip('http://')
+                link = self.meridian_base_url + filename
+            data = self.br.open(link).read()
+            self.br.back()
+            save = open('figures/snow.png', 'wb')
+            save.write(data)
+            save.close()            
+            print "Successfully grabbed " + link        
+
+        except:
+            print "Unable to access " + self.meridian_link
+
+    def get_niwa_pic(self):
+        try:
+            self.br = mechanize.Browser()    # Browser
+            html =self.br.open(self.niwa_link)
+            all_links = list(self.br.links())
+            def get_climate_link(all_links):
+                '''Attempt to grab the first climate related link, 
+                   there must be a better way than this, but this will do for now...'''
+                climate_links=[]
+                for l in all_links:
+                    if len(l.url.split('/'))>3:
+                        if l.url.split('/')[1] == 'climate':
+                            climate_links.append(l.url)
+                return climate_links[0]
+            most_recent_link = self.niwa_base_url + get_climate_link(all_links)
+            #print most_recent_link
+            html = self.br.open(most_recent_link)
+            soup = BeautifulSoup(html)
+            all_links = list(self.br.links())
+
+            def get_latest_image(all_links):
+                for l in all_links:
+                    if "tcu_outlook" in l.url: #find link
+                        return l.url
+            image_url = get_latest_image(all_links)
+            data = self.br.open(image_url).read() 
+            self.br.back()
+            save = open('figures/niwa.png', 'wb')
+            save.write(data)
+            save.close()    
+            print "Successfully grabbed " + image_url        
+            
+        except:
+            print "Unable to access " + self.niwa_link
+
+
 if __name__ == '__main__':
     pass

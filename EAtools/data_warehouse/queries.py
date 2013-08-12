@@ -6,7 +6,7 @@ import pyodbc
 import os,sys
 import urllib2
 import xlrd
-from EAtools.data_warehouse.utilities import date_converter
+from EAtools.data_warehouse.utilities import date_converter,timeseries_convert
 
 ########################################################################
 #Data Warehouse connection setup
@@ -89,6 +89,45 @@ def FP_getter(connection,q):
 #Ok, now we decorate our default FP_query function to create two new functions: 
 query_prices = FP_price(FP_query)  #for prices
 query_demand = FP_demand(FP_query) #for demand...
+
+########################################################################
+#LWAP data used in weekly report
+########################################################################
+
+def get_lwaps(connection):
+
+    #From the start of last month, to yesterday
+    dBegt0 = datetime(datetime.now().date().year,datetime.now().date().month-1,1).date()
+    dEndt0 = datetime.now().date()-timedelta(days=1)
+    #From the start of last month, last year, to the end of the next month, last year...
+    dBegt1 = datetime(datetime.now().date().year-1,datetime.now().date().month-1,1).date()
+    dEndt1 = datetime(datetime.now().date().year-1,datetime.now().date().month+2,1).date()-timedelta(days=1)
+    #From the start of last month, 2 years ago, to the end of the next month 2 years ago...
+    dBegt2 = datetime(datetime.now().date().year-2,datetime.now().date().month-1,1).date()
+    dEndt2 = datetime(datetime.now().date().year-2,datetime.now().date().month+2,1).date()-timedelta(days=1)
+
+    l0 = timeseries_convert(FP_getter(connection,query_demand(dBegt0,dEndt0)))
+    p0 = timeseries_convert(FP_getter(connection,query_prices(dBegt0,dEndt0)))
+    l1 = timeseries_convert(FP_getter(connection,query_demand(dBegt1,dEndt1)))
+    p1 = timeseries_convert(FP_getter(connection,query_prices(dBegt1,dEndt1)))
+    l2 = timeseries_convert(FP_getter(connection,query_demand(dBegt2,dEndt2)))
+    p2 = timeseries_convert(FP_getter(connection,query_prices(dBegt2,dEndt2)))
+
+    def lwap(p,l):
+        return (p*l).sum(axis=1)/l.sum(axis=1)
+
+    lwap0 = lwap(p0.price,l0.demand)
+    lwap1 = lwap(p1.price,l1.demand)
+    lwap2 = lwap(p2.price,l2.demand)
+
+    def shift_index(df,year_shift):
+        return df.index.map(lambda x: datetime(x.year+year_shift,x.month,x.day,x.hour,x.minute))
+  
+    lwap1.index = shift_index(lwap1,1)
+    lwap2.index = shift_index(lwap2,2)
+    lwaps = pd.DataFrame({str(dBegt0) + ' to ' + str(dEndt0):lwap0,str(dBegt1) + ' to ' + str(dEndt1):lwap1,str(dBegt2) + ' to ' + str(dEndt2):lwap2})
+    return lwaps
+
 
 
 ########################################################################
@@ -270,6 +309,7 @@ def get_qwop(connection,dateBeg,dateEnd,company):
     t['Date'] = t['Date'].map(lambda x: date_converter(x))
     t = t.set_index(['Date','TP']).QWOP
     return t
+
 
 
 
