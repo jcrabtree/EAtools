@@ -281,7 +281,7 @@ def CQ_data(spread_panel,daily_panel,price_data,quarter,ota_ben):
     CQ['CQ_Sett'] = sett 
     CQ['CQ_mean'] = price_data
     CQ['CQ_days'] = CQ.index.map(lambda x: x-quarter.start_time.date()+timedelta(days=1))
-    CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x.astype(object).days)
+    CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x.item().days)
     CQ['CQ_pc'] = CQ['CQ_days'].map(lambda x: x/CQ_days)
     CQ['CQ_imp'] = (CQ['CQ_Sett']-CQ['CQ_pc']*CQ['CQ_mean'])/(1-CQ['CQ_pc'])
     
