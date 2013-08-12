@@ -281,7 +281,11 @@ def CQ_data(spread_panel,daily_panel,price_data,quarter,ota_ben):
     CQ['CQ_Sett'] = sett 
     CQ['CQ_mean'] = price_data
     CQ['CQ_days'] = CQ.index.map(lambda x: x-quarter.start_time.date()+timedelta(days=1))
-    CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x.item().days)
+    if int(np.version.version.replace('.',''))<170:
+        CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x.item().days)
+    else:
+        CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x/np.timedelta64(1,'D'))
+
     CQ['CQ_pc'] = CQ['CQ_days'].map(lambda x: x/CQ_days)
     CQ['CQ_imp'] = (CQ['CQ_Sett']-CQ['CQ_pc']*CQ['CQ_mean'])/(1-CQ['CQ_pc'])
     
@@ -289,6 +293,7 @@ def CQ_data(spread_panel,daily_panel,price_data,quarter,ota_ben):
     CQ = CQ.ix[CQ_beg.date():CQ_end.date(),]
     
     return CQ
+
 
 #ASX plot functions
 
