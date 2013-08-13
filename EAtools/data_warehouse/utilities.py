@@ -343,7 +343,13 @@ def bid_ask_plot(figno,df_ota,df_ben,fig_file):
         ax.fill_between(x,bid_CQ_mins,ask_CQ_maxs,color=colour2)
         df['CQ_Sett'].plot(marker='.',linewidth=0,markersize=20,ax=ax,color=colour1)
         df['CQ_mean'].plot(ax=ax,color=colour3,linewidth=lw)
-        df['CQ_imp'].plot(ax=ax,color=colour4,linewidth=lw)
+        #We want to extent the implied price out to the end of the quarter, here we go...
+        CQ_imp = df['CQ_imp'].dropna()
+        CQ_imp = CQ_imp.append(CQ_imp.tail(1))
+        newindex = CQ_imp.index.tolist()[:-1]
+        newindex = newindex + [(current_quarter().end_time+timedelta(1)).date()]
+        CQ_imp.index = newindex
+        CQ_imp.plot(ax=ax,color=colour4,linewidth=lw)
         xlabels = ax.get_xticklabels() 
         for label in xlabels: 
             label.set_rotation(0) 
@@ -362,7 +368,6 @@ def bid_ask_plot(figno,df_ota,df_ben,fig_file):
     ota_colour2 = ea_s['or2']
     ota_colour3 = ea_s['rd1']
     ota_colour4 = ea_s['rd2']
-
     ben_colour1 = ea_s['bl1']
     ben_colour2 = ea_s['be1']
     ben_colour3 = ea_s['pp1']
@@ -371,6 +376,7 @@ def bid_ask_plot(figno,df_ota,df_ben,fig_file):
     bid_ask_sett_implied(df_ota,ax1,'Otahuhu',ota_colour1,ota_colour2,ota_colour3,ota_colour4)
     bid_ask_sett_implied(df_ben,ax2,'Benmore',ben_colour1,ben_colour2,ben_colour3,ben_colour4)
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
+
 
 def plot_monthly_volumes(figno,ota,ben,fig_file):
     '''Munge data from panel, and plot monthly trading volumes using a stacked bar plot'''
