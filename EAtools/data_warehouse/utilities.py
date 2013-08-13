@@ -334,21 +334,29 @@ def bid_ask_plot(figno,df_ota,df_ben,fig_file):
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212, sharex=ax1)
 
-    def bid_ask_sett_implied(df,ax,colour1,colour2,colour3,colour4):
+    def bid_ask_sett_implied(df,ax,title,colour1,colour2,colour3,colour4):
+        lw=3
+        ms=20
         x = df.index
         bid_CQ_mins = df[('CQ_bid','min')].values
         ask_CQ_maxs = df[('CQ_ask','max')].values
         ax.fill_between(x,bid_CQ_mins,ask_CQ_maxs,color=colour2)
-        df['CQ_Sett'].plot(marker='.',ax=ax,linewidth = 0,color=colour1)
-        df['CQ_mean'].plot(ax=ax,color=colour3)
-        df['CQ_imp'].plot(ax=ax,color=colour4)
+        df['CQ_Sett'].plot(marker='.',linewidth=0,markersize=20,ax=ax,color=colour1)
+        df['CQ_mean'].plot(ax=ax,color=colour3,linewidth=lw)
+        df['CQ_imp'].plot(ax=ax,color=colour4,linewidth=lw)
         xlabels = ax.get_xticklabels() 
         for label in xlabels: 
             label.set_rotation(0) 
+        ax.set_title(title)
         ax.set_xlabel('')
         ax.set_ylabel('$/MWh')
         ax.set_xlim([current_quarter().start_time,current_quarter().end_time])
-        ax.legend()
+        #Proxy artist legend
+        set_leg = plt.Line2D(range(1), range(1), color="white", markersize=ms, marker='.', markerfacecolor=colour1)
+        spd_leg = plt.Rectangle((0, 0), 1, 1, color=colour2)
+        exm_leg = plt.Line2D((0,1),(0,0), color=colour3,linewidth=lw)
+        imp_leg = plt.Line2D((0,1),(0,0), color=colour4,linewidth=lw)
+        ax.legend([set_leg,spd_leg,exm_leg,imp_leg], ["Daily hedge settlement","Intraday Bid-Ask spread","Expanding mean spot","Implied spot"])
         
     ota_colour1 = ea_s['or1']
     ota_colour2 = ea_s['or2']
@@ -360,8 +368,8 @@ def bid_ask_plot(figno,df_ota,df_ben,fig_file):
     ben_colour3 = ea_s['pp1']
     ben_colour4 = ea_s['pp2']
 
-    bid_ask_sett_implied(df_ota,ax1,ota_colour1,ota_colour2,ota_colour3,ota_colour4)
-    bid_ask_sett_implied(df_ben,ax2,ben_colour1,ben_colour2,ben_colour3,ben_colour4)
+    bid_ask_sett_implied(df_ota,ax1,'Otahuhu',ota_colour1,ota_colour2,ota_colour3,ota_colour4)
+    bid_ask_sett_implied(df_ben,ax2,'Benmore',ben_colour1,ben_colour2,ben_colour3,ben_colour4)
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
 def plot_monthly_volumes(figno,ota,ben,fig_file):
