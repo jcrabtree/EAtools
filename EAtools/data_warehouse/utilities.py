@@ -362,7 +362,7 @@ def bid_ask_plot(figno,df_ota,df_ben,fig_file):
         spd_leg = plt.Rectangle((0, 0), 1, 1, color=colour2)
         exm_leg = plt.Line2D((0,1),(0,0), color=colour3,linewidth=lw)
         imp_leg = plt.Line2D((0,1),(0,0), color=colour4,linewidth=lw)
-        ax.legend([set_leg,spd_leg,exm_leg,imp_leg], ["Daily hedge settlement","Intraday Bid-Ask spread","Expanding mean spot","Implied spot"])
+        ax.legend([set_leg,spd_leg,exm_leg,imp_leg], ["Daily hedge settlement","Intraday Bid-Ask spread","Mean spot to date","Implied spot"])
         
     ota_colour1 = ea_s['or1']
     ota_colour2 = ea_s['or2']
