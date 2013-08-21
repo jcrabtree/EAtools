@@ -319,6 +319,7 @@ def forward_price_curve(figno,df,color_map,fig_file):
     cmap_colors = cmap(colors)
     
     #plot
+    plt.close(figno)
     fig = plt.figure(figno,figsize=[20,12])
     ax = fig.add_subplot(111)
     forward_ldq.ix[:,:-1].plot(drawstyle='steps-post',color=cmap_colors,ax=ax)
@@ -504,7 +505,7 @@ def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
 
 
 def plot_lwap(figno,lwaps,fig_name):
-
+    plt.close(figno)
     fig = plt.figure(figno,figsize=[20,13])
     ax = fig.add_subplot(111)
     lwaps.plot(color=[ea_p['gy1'],ea_p['br2'],ea_p['rd1']],ax=ax)
