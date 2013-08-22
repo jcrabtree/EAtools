@@ -262,34 +262,26 @@ def CQ_data(spread_panel,daily_panel,price_data,quarter,ota_ben):
     def remove_rouge_datetime(df): #as said...
         return df[df.index.map(lambda x: len(x)>14)]
     
-    
     spread_panel.axes[1] = pd.period_range(spread_panel.axes[1][0], spread_panel.axes[1][-1], freq='Q') #quarterize...
     daily_panel.axes[1] = pd.period_range(daily_panel.axes[1][0], daily_panel.axes[1][-1], freq='Q')
-
     ask =spread_panel.ix[:,:,'Ask'].T
     bid =spread_panel.ix[:,:,'Bid'].T
-    
     sett = daily_panel.ix[quarter.start_time.date():quarter.end_time.date(),quarter,'Sett'].T
-
     bid = remove_rouge_datetime(bid[quarter]) #remove rouge timestamp - don't know how that got there...
     ask = remove_rouge_datetime(ask[quarter])
     bid.index = bid.index.map(lambda x: dtconvert(x)) #convert dates to datetime object
     ask.index = ask.index.map(lambda x: dtconvert(x))
     CQ = pd.DataFrame({'CQ_bid':bid,'CQ_ask':ask}).dropna() #whack into df
-    
     CQ = CQ.groupby(lambda x: x.date()).agg([('min','min'),('max','max')]) 
     CQ['CQ_Sett'] = sett 
     CQ['CQ_mean'] = price_data
     CQ['CQ_days'] = CQ.index.map(lambda x: x-quarter.start_time.date()+timedelta(days=1))
-    if int(np.version.version.replace('.',''))<170:
+    if int(np.version.version.replace('.','')[0:3])<170:
         CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x.item().days)
     else:
         CQ['CQ_days'] = CQ['CQ_days'].map(lambda x: x/np.timedelta64(1,'D'))
-
     CQ['CQ_pc'] = CQ['CQ_days'].map(lambda x: x/CQ_days)
     CQ['CQ_imp'] = (CQ['CQ_Sett']-CQ['CQ_pc']*CQ['CQ_mean'])/(1-CQ['CQ_pc'])
-    
-    
     CQ = CQ.ix[CQ_beg.date():CQ_end.date(),]
     
     return CQ
