@@ -40,6 +40,18 @@ def date_converter(x):
 def combine_date_time(df): #combine date and time columns, used with .apply
     return datetime.combine(df['date'],df['time'])
 
+def append_day(df):
+    df = df.append(df.tail(1))
+    index = [df.index.tolist()[:-1] + [df.index.tolist()[-1]+timedelta(days=1)]]
+    df.index =index
+    return df 
+    
+def append_quarter(df):
+    df = df.append(df.tail(1))
+    index = pd.period_range(df.index[0].start_time, df.index[-1].end_time+timedelta(days=1), freq='Q')
+    df.index = index
+    return df
+    
 def timeseries_convert(df,keep_tp_index=True):
     ''' 
     Convert a MultiIndexed timeseries dataframe from the Data Warehouse 
@@ -304,7 +316,6 @@ def forward_price_curve(figno,df,color_map,fig_file):
     forward = df.ix[:,:,'Sett']
     forward = forward[forward.index.map(lambda x: future(x))].T.dropna(thresh=2).T
     forward_ldq = forward.ix[:,last_date_quarter(forward)].T.sort().tail(8).T #last 2 years
-    forward_ldq = forward_ldq.append(forward_ldq.tail(1))
     #Define the color map
     colors = np.r_[np.linspace(0.0, 1, num=len(forward_ldq.T.index)-1)] 
     cmap = plt.get_cmap(color_map)
@@ -314,12 +325,15 @@ def forward_price_curve(figno,df,color_map,fig_file):
     plt.close(figno)
     fig = plt.figure(figno,figsize=[20,12])
     ax = fig.add_subplot(111)
-    forward_ldq.ix[:,:-1].plot(drawstyle='steps-post',color=cmap_colors,ax=ax)
-    forward_ldq.ix[:,-1].plot(drawstyle='steps-post',linewidth=4,color=cmap_colors[-1],ax=ax)
+    history_dfs = forward_ldq.ix[:,:-1]
+    history_dfs = append_quarter(history_dfs)
+    history_dfs.plot(drawstyle='steps-post',color=cmap_colors,ax=ax)
+    yesterday_df = forward_ldq.ix[:,-1]
+    yesterday_df = append_quarter(yesterday_df)
+    yesterday_df.plot(drawstyle='steps-post',linewidth=4,color=cmap_colors[-1],ax=ax)
     ax.set_xlabel('')
     ax.set_ylabel('$/MWh')
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
-
 
 def bid_ask_plot(figno,df_ota,df_ben,fig_file):
     '''Plot current quarter trends'''
@@ -384,7 +398,7 @@ def plot_monthly_volumes(figno,ota,ben,fig_file):
     
     fig = plt.figure(figno,figsize=[20,10])
     ax = fig.add_subplot(111)
-    volumes_GWh.plot(kind='bar',stacked=True,ax=ax,color=[ea_p['bl1'],ea_s['or1']])
+    v=volumes_GWh.plot(kind='bar',stacked=True,ax=ax,color=[ea_p['bl1'],ea_s['or1']])
     ax.set_xlabel('')
     ax.set_ylabel('GWh')
     #rint ax.get_xticklabels()
@@ -394,6 +408,7 @@ def plot_monthly_volumes(figno,ota,ben,fig_file):
         month = month1[int(xtl.get_text()[1:-1].split(',')[1].replace(' ',''))-1]
         newlabels.append(month + ', ' + years)
     ax.set_xticklabels(newlabels,fontsize=14)    
+    v.grid(axis='x')
   
         
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
@@ -467,7 +482,8 @@ def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
                     blueshift = cmap(colors)       
                 else:
                     blueshift = (0.81411766,0.88392158,0.94980392)
-                v.plot(ax=ax,color=blueshift)
+                v = append_day(v)
+                v.plot(ax=ax,color=blueshift,drawstyle='steps-post')
             if i == "Future quarters":
                 if len(v.columns) > 1:
                     colors = np.r_[np.linspace(0.2, 1, num=len(v.columns))] 
@@ -475,11 +491,13 @@ def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
                     redshift = cmap(colors)[::-1]  
                 else:
                     redshift = (0.99137255,0.79137256,0.70823531)
-                v.plot(ax=ax,color=redshift)
+                v = append_day(v)
+                v.plot(ax=ax,color=redshift,drawstyle='steps-post')
             if i == "Current quarter":
                 if v is not None:
-                    v.plot(ax=ax,color=(0.03137255,0.1882353,0.41960785))
-        
+                    v = append_day(v)
+                    v.plot(ax=ax,color=(0.03137255,0.1882353,0.41960785),drawstyle='steps-post')
+
         ax.set_ylabel('$/MWh') 
         ax.set_title(title)
         handles, labels = ax.get_legend_handles_labels()
@@ -494,7 +512,6 @@ def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
     subplotter(df_dict_sum,ax1,'Summer quarters')
     subplotter(df_dict_win,ax2,'Winter quarters')
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
-
 
 def plot_lwap(figno,lwaps,fig_name):
     plt.close(figno)
