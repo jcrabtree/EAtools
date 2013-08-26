@@ -513,6 +513,24 @@ def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
     subplotter(df_dict_win,ax2,'Winter quarters')
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
+def asx_table_maker(otahuhu,benmore,ota,ben,CQ):
+    def table_generator(df_spread,df,CQ):
+        '''Function to return useful stats on Hedge Market akin to Richard's table'''
+        bid = df_spread.ix[:,CQ:,'Bid'].dropna(how='all',axis=1).ix[:,-1]
+        offer = df_spread.ix[:,CQ:,'Ask'].dropna(how='all',axis=1).ix[:,-1]
+        spread = 100*((offer-bid)/bid)
+        Q_hours = pd.Series({q: hours_in_quarter(q) for q in bid.index}) #get hours in each quarter
+        GWh = ((df.ix[-1,CQ:,'Op Int'].T.fillna(0.0))*(Q_hours)/1000.0)
+        return pd.DataFrame({'Bid':bid,'Offer':offer,'Spread':spread,'UOI Futures (%)':100*GWh/GWh.sum()})
+    
+    bentab = table_generator(benmore,ben,CQ)
+    otatab = table_generator(otahuhu,ota,CQ)
+    table = pd.concat(dict(Otahuhu = otatab,Benmore = bentab),axis=1)
+    f = open('table.tex','w')
+    f.write(table.to_latex())
+    f.close
+
+
 def plot_lwap(figno,lwaps,fig_name):
     plt.close(figno)
     fig = plt.figure(figno,figsize=[20,13])
