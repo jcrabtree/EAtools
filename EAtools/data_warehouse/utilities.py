@@ -513,7 +513,7 @@ def plot_last_year(figno,df_dict_sum,df_dict_win,fig_file):
     subplotter(df_dict_win,ax2,'Winter quarters')
     plt.savefig(fig_file,bbox_inches='tight',transparent=True,pad_inches=0)
 
-def asx_table_maker(otahuhu,benmore,ota,ben,CQ):
+def asx_table_maker(otahuhu,benmore,ota,ben,CQ,tab_name):
     def table_generator(df_spread,df,CQ):
         '''Function to return useful stats on Hedge Market akin to Richard's table'''
         bid = df_spread.ix[:,CQ:,'Bid'].dropna(how='all',axis=1).ix[:,-1]
@@ -526,7 +526,7 @@ def asx_table_maker(otahuhu,benmore,ota,ben,CQ):
     bentab = table_generator(benmore,ben,CQ)
     otatab = table_generator(otahuhu,ota,CQ)
     table = pd.concat(dict(Otahuhu = otatab,Benmore = bentab),axis=1)
-    f = open('table.tex','w')
+    f = open(tab_name,'w')
     f.write(table.to_latex())
     f.close
 
