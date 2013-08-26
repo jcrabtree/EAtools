@@ -530,7 +530,36 @@ def asx_table_maker(otahuhu,benmore,ota,ben,CQ,tab_name):
     f.write(table.to_latex())
     f.close
 
+def asx_market_comment(ota,ben,comment_file,days=7):
+    def axs_market_comment(df,days):
+        def get_weekly_volume(df,Qhours,days):
+            return sum(df.ix[-days:,:,'Volume'].sum(axis=1).T*Q_hours/1000.0)
+    
+        def get_weekly_optin(df,Qhours,days):
+            return (df.ix[-1,:,'Op Int']*Q_hours/1000.0).sum()-(df.ix[-days,:,'Op Int']*Q_hours/1000.0).sum()
 
+        def inc_dec(x):
+            if x<0:
+                return "decreased"
+            if x>=0:
+                return "increased"
+        
+        Q_hours = pd.Series({q: hours_in_quarter(q) for q in df.ix[:,:,:].axes[1]}) #get hours in each quarter
+        d = {'op_int':sum(get_weekly_optin(df,Q_hours,days)),'volume':sum(get_weekly_volume(df,Q_hours,days))}
+        return d
+           
+    comment = "Comment: Over the past %i days, Open Interest %s by %iGWh at Otahuhu, and %s by %iGWh at Benmore. \n\n \
+    Volume was %iGWh at Otahuhu and %iGWh at Benmore." % (days,inc_dec(axs_market_comment(ota,days)['op_int']),\
+                                                                 round(axs_market_comment(ota,days)['op_int']),\
+                                                                 inc_dec(axs_market_comment(ota,days)['op_int']),\
+                                                                 round(axs_market_comment(ben,days)['op_int']), \
+                                                                 round(axs_market_comment(ota,days)['volume']), \
+                                                                 round(axs_market_comment(ben,days)['volume']))
+    f = open(comment_file,'w')
+    f.write(comment)
+    f.close
+    return comment
+    
 def plot_lwap(figno,lwaps,fig_name):
     plt.close(figno)
     fig = plt.figure(figno,figsize=[20,13])
