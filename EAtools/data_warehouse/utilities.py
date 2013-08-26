@@ -527,7 +527,7 @@ def asx_table_maker(otahuhu,benmore,ota,ben,CQ,tab_name):
     otatab = table_generator(otahuhu,ota,CQ)
     table = pd.concat(dict(Otahuhu = otatab,Benmore = bentab),axis=1)
     f = open(tab_name,'w')
-    f.write(table.to_latex(float_format='%.2f'))
+    f.write(table.to_latex()
     f.close
 
 
