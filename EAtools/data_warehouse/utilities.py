@@ -543,12 +543,6 @@ def asx_market_comment(ota,ben,comment_file,days=7):
     
         def get_weekly_optin(df,Qhours,days):
             return (df.ix[-1,:,'Op Int']*Q_hours/1000.0).sum()-(df.ix[-days,:,'Op Int']*Q_hours/1000.0).sum()
-
-    def inc_dec(x):
-        if x<0:
-            return "decreased"
-        if x>=0:
-            return "increased"
         
         Q_hours = pd.Series({q: hours_in_quarter(q) for q in df.ix[:,:,:].axes[1]}) #get hours in each quarter
         d = {'op_int':sum(get_weekly_optin(df,Q_hours,days)),'volume':sum(get_weekly_volume(df,Q_hours,days))}
