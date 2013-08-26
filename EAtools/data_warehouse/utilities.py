@@ -531,6 +531,12 @@ def asx_table_maker(otahuhu,benmore,ota,ben,CQ,tab_name):
     f.close
 
 def asx_market_comment(ota,ben,comment_file,days=7):
+    def inc_dec(x):
+        if x<0:
+            return "decreased"
+        if x>=0:
+            return "increased"
+    
     def axs_market_comment(df,days):
         def get_weekly_volume(df,Qhours,days):
             return sum(df.ix[-days:,:,'Volume'].sum(axis=1).T*Q_hours/1000.0)
