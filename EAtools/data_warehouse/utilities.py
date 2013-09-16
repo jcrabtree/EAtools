@@ -585,7 +585,7 @@ class get_web_pics(object):
             html =self.br.open(self.meridian_link)
             soup = BeautifulSoup(html)
             image_tags = soup.findAll('img')
-            #print image_tags
+            print image_tags
 
             for image in image_tags[0:1]:
                 filename = image['src'].lstrip('http://')

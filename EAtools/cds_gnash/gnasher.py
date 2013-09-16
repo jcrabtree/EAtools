@@ -59,8 +59,8 @@ if sys.platform.startswith("linux"):
 cwd = os.getcwd()
 
 #gnash_path = os.path.join(os.path.expanduser('~'+cds_path), 'CDS', 'CentralisedDataset', 'HalfHourly')
-#gnash_path = '/home/humed/python/gnash/cds/'
-#os.chdir(gnash_path)
+gnash_path = '/home/humed/python/gnash/cds/'
+os.chdir(gnash_path)
 
 class Gnasher(object):
     """Gnasher is a class designed to make interfacing with the Gnash.exe as 
