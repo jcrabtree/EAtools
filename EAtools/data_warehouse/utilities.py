@@ -8,7 +8,7 @@ from EAtools.EAstyles.ea_styles import ea_p,ea_s
 #from EAtools.data_warehouse.queries import FP_getter,query_demand
 from bs4 import BeautifulSoup
 import mechanize
-
+from cStringIO import StringIO
 import matplotlib.pyplot as plt
 
 month1 = {0:'Jan', 1:'Feb', 2:'Mar', 3:'Apr', 4:'May', 5:'Jun', 6:'Jul', 7:'Aug', 8:'Sep', 9:'Oct', 10:'Nov', 11:'Dec'}
@@ -587,16 +587,23 @@ class get_web_pics(object):
             html =self.br.open(self.meridian_link)
             soup = BeautifulSoup(html)
             image_tags = soup.findAll('img')
-            print image_tags
+            #print image_tags
 
             for image in image_tags[0:1]:
                 filename = image['src'].lstrip('http://')
                 link = self.meridian_base_url + filename
             data = self.br.open(link).read()
             self.br.back()
-            save = open('figures/snow.png', 'wb')
+            save_name = 'figures/snow.' + link.split('.')[-1] #at times this image appears either as a png or gif!
+            save = open(save_name, 'wb')
             save.write(data)
             save.close()            
+            if link.split('.')[-1]=='gif': #if we have a gif we need to convert to png
+                import Image
+                im = Image.open(StringIO(data))
+                im.save('figures/snow.png')
+                print "Converted Meridian snow pic from gif to png..."
+
             print "Successfully grabbed " + link        
 
         except:
